@@ -66,7 +66,6 @@ Detailed instructions for setting up and installing the AgriNode sensor will fol
 * **BME280:** SDA to D2 (GPIO4), SCL to D1 (GPIO5), VCC to 3.3V, GND to GND.
 * **DHT22:** Data pin to a digital pin (e.g., D4/GPIO2), VCC to 3.3V or 5V, GND to GND, pull-up resistor (4.7kΩ - 10kΩ) between data pin and VCC.
 * **BH1750:** SDA to D2 (GPIO4), SCL to D1 (GPIO5), VCC to 3.3V, GND to GND.
-* **EC/NPK Sensor (optional):** RS485 transceiver required, connection according to the datasheet of the sensor and transceiver.
 
 ### Software Installation
 
@@ -82,14 +81,6 @@ The AgriNode project is designed for energy-efficient operation to ensure a long
 * **Battery Selection:** Choosing a suitable LiPo or 18650 battery with sufficient capacity is crucial.
 * **Battery Management:** Using a BMS module protects the battery from damage and enables safe charging.
 * **Solar Integration (Optional):** A small solar module can be used in conjunction with a solar charge controller to charge the battery and extend operating time.
-
-## Note on Nutrient Measurement
-
-*(This section was already in English in the previous translation)*
-
-## Learning from Existing Projects
-
-*(This section was already in English in the previous translation)*
 
 ## Contributing
 
