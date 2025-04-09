@@ -4,6 +4,7 @@ import databaseController from '../controller/DatabaseController';
 import { User } from '../types';
 import serverConfig from '../config/serverConfig';
 import logger from '../config/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 // Store for refresh tokens - keeping this in memory for now
 // In a production app, you should store these in a database
@@ -30,6 +31,7 @@ class AuthService {
 
     // Create new user
     const newUser = await databaseController.createUser({
+      user_id: uuidv4(),
       email,
       password: hashedPassword,
       username,

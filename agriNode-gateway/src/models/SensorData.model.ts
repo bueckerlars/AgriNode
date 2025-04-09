@@ -1,5 +1,6 @@
 import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
 import { SensorData as SensorDataType } from '../types/SensorData';
+import { v4 as uuidv4 } from 'uuid';
 
 interface SensorDataCreationAttributes extends Optional<SensorDataType, 'data_id'> {}
 
@@ -25,6 +26,7 @@ export default (sequelize: Sequelize) => {
       data_id: {
         type: DataTypes.STRING,
         primaryKey: true,
+        defaultValue: () => uuidv4(), // Automatically generates a new UUID
       },
       sensor_id: {
         type: DataTypes.STRING,
@@ -40,23 +42,23 @@ export default (sequelize: Sequelize) => {
       },
       air_humidity: {
         type: DataTypes.FLOAT,
-        allowNull: false,
+        allowNull: true,
       },
       air_temperature: {
         type: DataTypes.FLOAT,
-        allowNull: false,
+        allowNull: true,
       },
       soil_moisture: {
         type: DataTypes.FLOAT,
-        allowNull: false,
+        allowNull: true,
       },
       soil_temperature: {
         type: DataTypes.FLOAT,
-        allowNull: false,
+        allowNull: true,
       },
       brightness: {
         type: DataTypes.FLOAT,
-        allowNull: false,
+        allowNull: true,
       },
       battery_level: {
         type: DataTypes.FLOAT,

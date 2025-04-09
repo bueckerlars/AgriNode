@@ -152,6 +152,15 @@ export class DatabaseController {
     return this.findById<Sensor>('Sensor', id);
   }
 
+  public async findSensorByDeviceId(deviceId: string): Promise<Sensor | null> {
+    try {
+      return await this.findOne<Sensor>('Sensor', { where: { unique_device_id: deviceId } });
+    } catch (error) {
+      logger.error(`Error in DatabaseController.findSensorByDeviceId: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
   /**
    * Find a sensor by a specific criteria
    */

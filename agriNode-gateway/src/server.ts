@@ -5,14 +5,20 @@ import logger from './config/logger';
 import swaggerSpec from './config/swagger';
 import AuthRoutes from './routes/AuthRoutes';
 import sensorRoutes from './routes/SensorRoutes';
+import SensorDataRoutes from './routes/SensorDataRoutes';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Middleware to parse JSON request bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.use("/api/auth/" , AuthRoutes);
 app.use('/api/sensors', sensorRoutes);
+app.use('/api/sensor-data', SensorDataRoutes);
 
 
 // Swagger route

@@ -18,7 +18,7 @@ const router = express.Router();
  *             required:
  *               - email
  *               - password
- *               - name
+ *               - username
  *             properties:
  *               email:
  *                 type: string
@@ -27,8 +27,6 @@ const router = express.Router();
  *                 type: string
  *                 format: password
  *                 minLength: 6
- *               name:
- *                 type: string
  *               username:
  *                 type: string
  *     responses:
