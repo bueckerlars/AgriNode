@@ -1,0 +1,763 @@
+openapi: 3.0.0
+info:
+  title: AgriNode API
+  version: 1.0.0
+  description: |
+    API documentation for AgriNode - A platform for managing plant sensors.
+    
+    This API allows user registration, adding sensors, and collecting sensor data.
+
+servers:
+  - url: http://localhost:5066
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User authentication and management
+  - name: Sensors
+    description: Sensor management
+  - name: Sensor Data
+    description: Sensor data management
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: refreshToken
+
+  schemas:
+    User:
+      type: object
+      required:
+        - user_id
+        - username
+        - email
+        - role
+      properties:
+        user_id:
+          type: string
+          description: Unique identifier for the user
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: User's email address
+        role:
+          type: string
+          enum: [admin, user]
+          description: User's role
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation date
+        updated_at:
+          type: string
+          format: date-time
+          description: Last account update date
+
+    Sensor:
+      type: object
+      required:
+        - sensor_id
+        - user_id
+        - name
+        - unique_device_id
+        - registered_at
+        - updated_at
+      properties:
+        sensor_id:
+          type: string
+          description: Unique identifier for the sensor
+        user_id:
+          type: string
+          description: ID of the user who owns the sensor
+        name:
+          type: string
+          description: Name of the sensor
+        description:
+          type: string
+          description: Optional description of the sensor
+        unique_device_id:
+          type: string
+          description: Unique hardware ID for identification
+        registered_at:
+          type: string
+          format: date-time
+          description: Sensor registration date
+        updated_at:
+          type: string
+          format: date-time
+          description: Last sensor update date
+
+    SensorData:
+      type: object
+      required:
+        - data_id
+        - sensor_id
+        - timestamp
+        - battery_level
+      properties:
+        data_id:
+          type: string
+          description: Unique identifier for the data record
+        sensor_id:
+          type: string
+          description: ID of the sensor that collected the data
+        timestamp:
+          type: string
+          format: date-time
+          description: Data collection timestamp
+        air_humidity:
+          type: number
+          description: Air humidity in percentage
+        air_temperature:
+          type: number
+          description: Air temperature in Celsius
+        soil_moisture:
+          type: number
+          description: Soil moisture in percentage
+        soil_temperature:
+          type: number
+          description: Soil temperature in Celsius
+        brightness:
+          type: number
+          description: Brightness in lux
+        battery_level:
+          type: number
+          description: Battery level in percentage
+
+paths:
+  /status:
+    get:
+      summary: Get API status
+      description: Returns the status of the API to indicate it is running.
+      responses:
+        200:
+          description: API is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - username
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                username:
+                  type: string
+      responses:
+        201:
+          description: User successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+        400:
+          description: Invalid input data
+        409:
+          description: Email already exists
+
+  /api/auth/login:
+    post:
+      summary: Log in a user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+        401:
+          description: Invalid login credentials
+
+  /api/auth/refresh:
+    post:
+      summary: Refresh authentication token
+      tags: [Authentication]
+      security:
+        - cookieAuth: []
+      responses:
+        200:
+          description: New token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+        401:
+          description: Invalid or expired refresh token
+
+  /api/auth/logout:
+    post:
+      summary: Log out a user
+      tags: [Authentication]
+      responses:
+        200:
+          description: Logout successful
+        401:
+          description: Not authenticated
+
+  /api/auth/me:
+    get:
+      summary: Get current user profile
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User profile data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        401:
+          description: Not authenticated
+
+  /api/auth/change-password:
+    post:
+      summary: Change user password
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - oldPassword
+                - newPassword
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        200:
+          description: Password successfully changed
+        400:
+          description: Invalid input data
+        401:
+          description: Not authenticated
+
+  /api/sensors:
+    get:
+      summary: Get all sensors for the authenticated user
+      tags: [Sensors]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of sensors for the authenticated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sensor'
+        401:
+          description: Not authenticated
+        500:
+          description: Internal server error
+
+  /api/sensors/register:
+    post:
+      summary: Register a new sensor
+      tags: [Sensors]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - unique_device_id
+              properties:
+                name:
+                  type: string
+                  description: Name of the sensor
+                description:
+                  type: string
+                  description: Optional description of the sensor
+                unique_device_id:
+                  type: string
+                  description: Unique device ID for hardware identification
+      responses:
+        201:
+          description: Sensor successfully registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Sensor registered successfully
+                  data:
+                    $ref: '#/components/schemas/Sensor'
+        400:
+          description: Bad request, missing required fields
+        401:
+          description: Not authenticated
+        409:
+          description: Conflict, sensor with this device ID already exists
+        500:
+          description: Internal server error
+
+  /api/sensors/{sensorId}:
+    get:
+      summary: Get sensor information by ID
+      tags: [Sensors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sensorId
+          schema:
+            type: string
+          required: true
+          description: ID of the sensor to retrieve
+      responses:
+        200:
+          description: Sensor information successfully retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Sensor'
+        400:
+          description: Bad request, missing sensor ID
+        401:
+          description: Not authenticated
+        403:
+          description: No permission to access this sensor
+        404:
+          description: Sensor not found
+        500:
+          description: Internal server error
+    
+    put:
+      summary: Update sensor information
+      tags: [Sensors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sensorId
+          schema:
+            type: string
+          required: true
+          description: ID of the sensor to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New name for the sensor
+                description:
+                  type: string
+                  description: New description for the sensor
+      responses:
+        200:
+          description: Sensor information successfully updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Sensor information updated successfully
+                  data:
+                    $ref: '#/components/schemas/Sensor'
+        400:
+          description: Bad request, missing sensor ID or update data
+        401:
+          description: Not authenticated
+        403:
+          description: No permission to update this sensor
+        404:
+          description: Sensor not found
+        500:
+          description: Internal server error
+
+    delete:
+      summary: Unregister (delete) a sensor
+      tags: [Sensors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sensorId
+          schema:
+            type: string
+          required: true
+          description: ID of the sensor to delete
+      responses:
+        200:
+          description: Sensor successfully unregistered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Sensor unregistered successfully
+        400:
+          description: Bad request, missing sensor ID
+        401:
+          description: Not authenticated
+        403:
+          description: No permission to delete this sensor
+        404:
+          description: Sensor not found
+        500:
+          description: Internal server error
+
+  /api/sensor-data:
+    post:
+      summary: Create new sensor data
+      tags: [Sensor Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sensor_id
+                - battery_level
+              properties:
+                sensor_id:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+                air_humidity:
+                  type: number
+                air_temperature:
+                  type: number
+                soil_moisture:
+                  type: number
+                soil_temperature:
+                  type: number
+                brightness:
+                  type: number
+                battery_level:
+                  type: number
+      responses:
+        201:
+          description: Sensor data successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorData'
+        400:
+          description: Bad request
+        500:
+          description: Server error
+
+    get:
+      summary: Get all sensor data
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of sensor data records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SensorData'
+        401:
+          description: Not authenticated
+        500:
+          description: Server error
+
+  /api/sensor-data/{id}:
+    get:
+      summary: Get sensor data by ID
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Sensor data ID
+      responses:
+        200:
+          description: Sensor data record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorData'
+        401:
+          description: Not authenticated
+        404:
+          description: Sensor data not found
+        500:
+          description: Server error
+
+    put:
+      summary: Update sensor data
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Sensor data ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timestamp:
+                  type: string
+                  format: date-time
+                air_humidity:
+                  type: number
+                air_temperature:
+                  type: number
+                soil_moisture:
+                  type: number
+                soil_temperature:
+                  type: number
+                brightness:
+                  type: number
+                battery_level:
+                  type: number
+      responses:
+        200:
+          description: Updated sensor data record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorData'
+        401:
+          description: Not authenticated
+        404:
+          description: Sensor data not found
+        500:
+          description: Server error
+
+    delete:
+      summary: Delete sensor data
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Sensor data ID
+      responses:
+        200:
+          description: Sensor data successfully deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        401:
+          description: Not authenticated
+        404:
+          description: Sensor data not found
+        500:
+          description: Server error
+
+  /api/sensor-data/sensor/{sensorId}:
+    get:
+      summary: Get all data for a specific sensor
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sensorId
+          schema:
+            type: string
+          required: true
+          description: Sensor ID
+      responses:
+        200:
+          description: List of sensor data records for the specified sensor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SensorData'
+        401:
+          description: Not authenticated
+        500:
+          description: Server error
+
+    delete:
+      summary: Delete all data for a specific sensor
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sensorId
+          schema:
+            type: string
+          required: true
+          description: Sensor ID
+      responses:
+        200:
+          description: Sensor data successfully deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  count:
+                    type: integer
+        401:
+          description: Not authenticated
+        500:
+          description: Server error
+
+  /api/sensor-data/sensor/{sensorId}/timerange:
+    get:
+      summary: Get sensor data within a time range
+      tags: [Sensor Data]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sensorId
+          schema:
+            type: string
+          required: true
+          description: Sensor ID
+        - in: query
+          name: startTime
+          schema:
+            type: string
+            format: date-time
+          required: true
+          description: Start time (ISO format)
+        - in: query
+          name: endTime
+          schema:
+            type: string
+            format: date-time
+          required: true
+          description: End time (ISO format)
+      responses:
+        200:
+          description: List of sensor data records within the specified time range
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SensorData'
+        400:
+          description: Bad request, invalid parameters
+        401:
+          description: Not authenticated
+        500:
+          description: Server error
