@@ -152,6 +152,18 @@ export class DatabaseController {
     return this.findById<Sensor>('Sensor', id);
   }
 
+  /**
+   * Find a sensor by a specific criteria
+   */
+  public async findOneSensor(options: FindOptions): Promise<Sensor | null> {
+    try {
+      return await this.findOne<Sensor>('Sensor', options);
+    } catch (error) {
+      logger.error(`Error in DatabaseController.findOneSensor: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
   public async updateSensor(data: Partial<Sensor>, where: WhereOptions): Promise<[number, Sensor[]]> {
     return this.update<Sensor>('Sensor', data, where);
   }

@@ -4,6 +4,7 @@ import swaggerUi from 'swagger-ui-express';
 import logger from './config/logger';
 import swaggerSpec from './config/swagger';
 import AuthRoutes from './routes/AuthRoutes';
+import sensorRoutes from './routes/SensorRoutes';
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use("/api/auth/" , AuthRoutes);
+app.use('/api/sensors', sensorRoutes);
 
 
 // Swagger route
