@@ -20,8 +20,8 @@ AgriNode is an open-source project that realizes a cost-effective and energy-eff
 8. [Note on Nutrient Measurement](#note-on-nutrient-measurement)
 9. [Learning from Existing Projects](#learning-from-existing-projects)
 10. [API Documentation](#api-documentation)
-11. [Contributing](#contributing)
-12. [License](#license)
+12. [Contributing](#contributing)
+13. [License](#license)
 
 ## Features
 
@@ -33,6 +33,8 @@ AgriNode is an open-source project that realizes a cost-effective and energy-eff
 * **3D-Printable Housing:** Suggestions and considerations for the design of a functional and robust housing.
 
 ## Hardware Components
+
+For detailed information about the hardware setup, refer to the [Hardware Documentation](./doku/hardware.md).
 
 * **Microcontroller:** WEMOS D1 Mini (ESP8266 based)
 * **Soil Moisture Sensor:** (see recommendations under Features)
