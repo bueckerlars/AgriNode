@@ -1,0 +1,75 @@
+import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
+import { SensorData as SensorDataType } from '../types/SensorData';
+
+interface SensorDataCreationAttributes extends Optional<SensorDataType, 'data_id'> {}
+
+class SensorData extends Model<SensorDataType, SensorDataCreationAttributes> implements SensorDataType {
+  public data_id!: string;
+  public sensor_id!: string;
+  public timestamp!: Date;
+  public air_humidity!: number;
+  public air_temperature!: number;
+  public soil_moisture!: number;
+  public soil_temperature!: number;
+  public brightness!: number;
+  public battery_level!: number;
+
+  static associate(models: any) {
+    SensorData.belongsTo(models.Sensor, { foreignKey: 'sensor_id' });
+  }
+}
+
+export default (sequelize: Sequelize) => {
+  SensorData.init(
+    {
+      data_id: {
+        type: DataTypes.STRING,
+        primaryKey: true,
+      },
+      sensor_id: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        references: {
+          model: 'Sensors',
+          key: 'sensor_id',
+        },
+      },
+      timestamp: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      air_humidity: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      air_temperature: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      soil_moisture: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      soil_temperature: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      brightness: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      battery_level: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+    },
+    {
+      sequelize,
+      modelName: 'SensorData',
+      tableName: 'SensorData',
+      timestamps: false,
+    }
+  );
+
+  return SensorData;
+};

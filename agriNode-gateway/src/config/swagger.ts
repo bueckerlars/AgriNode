@@ -8,8 +8,17 @@ const swaggerOptions = {
       version: '1.0.0',
       description: 'API documentation for AgriNode',
     },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      }
+    },
   },
-  apis: ['./src/routes/*.ts'],
+  apis: ['./src/routes/*.ts', './src/routes/AuthRoutes.ts', './src/server.ts'], 
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);

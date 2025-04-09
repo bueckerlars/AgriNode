@@ -1,4 +1,4 @@
-interface SensorData {
+export interface SensorData {
     data_id: string;
     sensor_id: string;
     timestamp: Date;
