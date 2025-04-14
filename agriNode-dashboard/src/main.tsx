@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import routes from './routes.tsx'
 import { ThemeProvider } from 'next-themes'
 import { AuthProvider } from './provider/AuthProvider.tsx'
+import { Toaster } from 'sonner'
 
 const router = createBrowserRouter(routes);
 
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider >
       <AuthProvider>
         <RouterProvider router={router} />
+        <Toaster/>
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>,

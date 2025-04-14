@@ -7,11 +7,9 @@ interface AuthContextType {
   authToken?: string | null;
   user?: User | null;
   loading: boolean;
-  login: (loginRequest: LoginRequest) => Promise<string>;
-  register: (registerRequest: RegisterRequest) => Promise<string>;
+  login: (loginRequest: LoginRequest) => Promise<AuthResponse>;
+  register: (registerRequest: RegisterRequest) => Promise<AuthResponse>;
   logout: () => Promise<void>;
-  fetchUser: () => Promise<void>;
-  refreshAccessToken: () => Promise<AuthResponse>;
   changePassword: (changePasswordRequest: ChangePasswordRequest) => Promise<void>;
 }
 
@@ -22,69 +20,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        setLoading(true);
-        await refreshAccessToken();
-        await fetchUser();
-      } catch (error) {
-        console.error('Failed to initialize auth:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-  }, []);
-
   const login = async (loginRequest: LoginRequest) => {
     try {
-      setLoading(true);
       const response = await authApi.login(loginRequest);
       setAuthToken(response.accessToken);
       await fetchUser();
-      return response.accessToken;
+      return response;
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const register = async (registerRequest: RegisterRequest) => {
     try {
-      setLoading(true);
       const response = await authApi.register(registerRequest);
       setAuthToken(response.accessToken);
       await fetchUser();
-      return response.accessToken;
+      return response;
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchUser = async () => {
+    if (!authToken) return;
+    
     try {
-      const response = await authApi.getProfile();
+      const response = await authApi.getProfile(authToken!);
       setUser(response);
+      setLoading(false);
     } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      setUser(null);
+      console.error('Fetching user failed:', error);
+      // If token is invalid, try to refresh it once
+      try {
+        await refreshAccessToken();
+        const response = await authApi.getProfile(authToken!);
+        setUser(response);
+      } catch (refreshError) {
+        // If refresh fails, logout the user
+        logout();
+      }
+      setLoading(false);
     }
   };
 
   const refreshAccessToken = async () => {
     try {
-      const response = await authApi.refreshToken();
+      const response = await authApi.refreshToken(authToken!);
       setAuthToken(response.accessToken);
       return response;
     } catch (error) {
       console.error('Token refresh failed:', error);
+      // Clear auth state if refresh fails
       logout();
       throw error;
     }
@@ -92,32 +81,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      setLoading(true);
       await authApi.logout();
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
+      // Always clear local auth state, even if the API call fails
       setAuthToken(null);
       setUser(null);
-      setLoading(false);
     }
   };
 
   const changePassword = async (changePasswordRequest: ChangePasswordRequest) => {
+    if (!authToken) {
+      throw new Error('User is not authenticated');
+    }
+
     try {
-      setLoading(true);
       await authApi.changePassword(changePasswordRequest);
       console.log('Password changed successfully');
     } catch (error) {
       console.error('Password change failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    // Try to get user data if we have a token
+    if (authToken) {
+      fetchUser();
+      
+      // Set up token refresh interval
+      const refreshInterval = 4.5 * 60 * 1000; // Refresh every 4.5 minutes (slightly before 5min expiry)
+      const interval = setInterval(refreshAccessToken, refreshInterval);
+      
+      return () => clearInterval(interval);
+    } else {
+      // Try to refresh the token on initial load to recover session
+      refreshAccessToken().catch(() => {
+        setLoading(false);
+      });
+    }
+  }, [authToken]);
+
   return (
-    <AuthContext.Provider value={{ user, authToken, loading, login, register, logout, changePassword, fetchUser, refreshAccessToken }}>
+    <AuthContext.Provider value={{ user, authToken, loading, login, register, logout, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

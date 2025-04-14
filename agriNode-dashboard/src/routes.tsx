@@ -7,6 +7,7 @@ import { Profile } from "./pages/Profile";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const routes = [
     {
@@ -19,19 +20,35 @@ const routes = [
         children: [
             {
                 path: "/",
-                element: <Dashboard />
+                element: (
+                    <ProtectedRoute>
+                        <Dashboard />
+                    </ProtectedRoute>
+                )
             },
             {
                 path: "settings",
-                element: <Settings />
+                element: (
+                    <ProtectedRoute>
+                        <Settings />
+                    </ProtectedRoute>
+                )
             },
             {
                 path: "profile",
-                element: <Profile />
+                element: (
+                    <ProtectedRoute>
+                        <Profile />
+                    </ProtectedRoute>
+                )
             },
             {
                 path: "sensor/:sensorId",
-                element: <SensorDetails />
+                element: (
+                    <ProtectedRoute>
+                        <SensorDetails />
+                    </ProtectedRoute>
+                ) 
             },
             {
                 path: "login",

@@ -2,10 +2,12 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import logger from './config/logger';
+import cors from 'cors';
 import swaggerSpec from './config/swagger';
 import AuthRoutes from './routes/AuthRoutes';
 import sensorRoutes from './routes/SensorRoutes';
 import SensorDataRoutes from './routes/SensorDataRoutes';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -15,6 +17,15 @@ const port = process.env.PORT || 3000;
 // Middleware to parse JSON request bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); 
+
+app.use(cors({
+  origin: ["http://localhost:5173", "http://localhost:3000"], // Erlaubt beide Origins
+  credentials: true, // Erforderlich für Cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204
+}));
 
 app.use("/api/auth/" , AuthRoutes);
 app.use('/api/sensors', sensorRoutes);
