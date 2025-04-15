@@ -191,10 +191,13 @@ class SensorService {
             if (batteryLevel !== undefined) {
                 updateData.batteryLevel = batteryLevel;
             }
+
+            logger.info(`Updating sensor ${sensorId} with data: ${JSON.stringify(updateData)}`);
             
+            // Fix: Pass the where condition correctly, not wrapped in a where object
             await databaseController.updateSensor(
-                updateData, 
-                { where: { sensor_id: sensorId } }
+                updateData,
+                { sensor_id: sensorId }
             );
             
             return await databaseController.findSensorById(sensorId);

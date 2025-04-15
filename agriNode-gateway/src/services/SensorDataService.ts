@@ -10,15 +10,25 @@ class SensorDataService {
    */
   async createSensorData(sensorData: Partial<SensorData>): Promise<SensorData | null> {
     try {
-      logger.info('Creating new sensor data record' + JSON.stringify(sensorData));
+      logger.info('Creating new sensor data record: ' + JSON.stringify(sensorData));
 
-      const sensor = await databaseController.findSensorByDeviceId(sensorData.sensor_id!);
+      // Get the device ID from the incoming data
+      const deviceId = sensorData.sensor_id;
+      
+      if (!deviceId) {
+        throw new Error('Device ID is required');
+      }
+
+      // Find the sensor using the device ID
+      const sensor = await databaseController.findSensorByDeviceId(deviceId);
       
       if (!sensor) {
-        throw new Error(`Sensor with device ID ${sensorData.sensor_id} not found`);
+        throw new Error(`Sensor with device ID ${deviceId} not found`);
       }
       
+      // Replace the device ID with the actual sensor ID from database
       sensorData.sensor_id = sensor.sensor_id;
+      
       const newSensorData = await databaseController.createSensorData(sensorData);
       
       // Update the sensor's lastUpdated and batteryLevel if available
