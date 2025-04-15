@@ -37,6 +37,7 @@ import {
 import AppSidebar from "@/components/AppSidebar";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useSensorData } from "@/contexts/SensorDataContext";
+import sensorApi from "@/api/sensorApi";
 
 // Zeitraumoptionen für den Auswahlmenüs
 const TIME_RANGES = [
@@ -50,7 +51,7 @@ const SensorDetail = () => {
   const { sensorId } = useParams<{ sensorId: string }>();
   const navigate = useNavigate();
   
-  const { getSensorById, updateSensor, deleteSensor } = useSensors();
+  const { getSensorById, updateSensor, deleteSensor, fetchSensors, sensors, loading: sensorsLoading } = useSensors();
   const { getSensorDataBySensorId, getSensorDataByTimeRange } = useSensorData();
   
   const [sensor, setSensor] = useState<Sensor | null>(null);
@@ -199,13 +200,36 @@ const SensorDetail = () => {
     
     const fetchData = async () => {
       try {
+        // Prüfen ob Sensoren bereits geladen sind
+        if (sensors.length === 0) {
+          // Wenn nicht, Sensoren vom Server laden
+          await fetchSensors();
+        }
+        
         // Sensor aus dem SensorsContext abrufen
         const foundSensor = getSensorById(sensorId);
         
+        // Wenn der Sensor immer noch nicht gefunden wurde, spezifischen Sensor laden
         if (!foundSensor) {
-          toast.error("Sensor nicht gefunden");
-          navigate("/");
-          return;
+          try {
+            // Direkter API-Aufruf zum Laden des Sensors
+            const sensor = await sensorApi.getSensorById(sensorId);
+            if (sensor) {
+              setSensor(sensor);
+              // Sensordaten laden
+              await fetchSensorData();
+              return;
+            } else {
+              toast.error("Sensor nicht gefunden");
+              navigate("/");
+              return;
+            }
+          } catch (error) {
+            console.error("Fehler beim Laden des spezifischen Sensors:", error);
+            toast.error("Sensor nicht gefunden");
+            navigate("/");
+            return;
+          }
         }
         
         setSensor(foundSensor);
@@ -222,7 +246,7 @@ const SensorDetail = () => {
     };
     
     fetchData();
-  }, [sensorId, navigate, getSensorById]);
+  }, [sensorId, navigate, getSensorById, fetchSensors, sensors.length]);
   
   // Laden neuer Daten, wenn sich der Zeitraum ändert
   useEffect(() => {
