@@ -27,11 +27,11 @@
 #include <ArduinoJson.h>
 
 // WiFi credentials
-const char* WIFI_SSID = "<your-wifi-ssid>";
-const char* WIFI_PASSWORD = "<your-wifi-password>";
+const char* WIFI_SSID = "Connecto Patronum";
+const char* WIFI_PASSWORD = "!Kl3pp3rg4sse3EG!";
 
 // API endpoint
-const char* API_ENDPOINT = "http://<your-agriNode-gateway-url>/api/sensor-data";
+const char* API_ENDPOINT = "http://192.168.178.95:5066/api/sensor-data";
 const char* API_KEY = "YOUR_API_KEY"; // If required by your gateway
 const char* SENSOR_ID = "SENSOR_1"; // Unique identifier for this sensor node
 
@@ -170,7 +170,7 @@ bool sendDataToGateway(float temperature, float humidity, float pressure, float 
   //doc["pressure"] = pressure;
   doc["brightness"] = light;
   doc["soil_moisture"] = moisture;
-  doc["battery_level"] = ESP.getVcc() / 1000.0; // Battery voltage in volts
+  doc["battery_level"] = 100; // ToDo: Implement battery level reading
   
   // Serialize JSON to string
   String jsonData;
