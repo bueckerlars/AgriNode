@@ -445,7 +445,7 @@ const SensorDetail = () => {
               </CardHeader>
               <CardContent>
                 <code className="bg-muted rounded px-1 py-0.5 text-xs">
-                  {sensor.sensor_id || "Unbekannt"}
+                  {sensor.unique_device_id || "Unbekannt"}
                 </code>
               </CardContent>
             </Card>
