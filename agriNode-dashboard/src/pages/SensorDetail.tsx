@@ -12,11 +12,13 @@ import {
   Battery,
   BatteryLow,
   BatteryMedium,
-  BatteryFull
+  BatteryFull,
+  Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SensorDataChart from "@/components/SensorDataChart";
 import SensorRegistrationForm from "@/components/SensorRegistrationForm";
 import { SensorReadingsByType, SensorUpdatePayload } from "@/types/sensor";
@@ -36,18 +38,118 @@ import AppSidebar from "@/components/AppSidebar";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useSensorData } from "@/contexts/SensorDataContext";
 
+// Zeitraumoptionen für den Auswahlmenüs
+const TIME_RANGES = [
+  { value: '24h', label: 'Letzte 24 Stunden' },
+  { value: '48h', label: 'Letzte 48 Stunden' },
+  { value: '7d', label: 'Letzte 7 Tage' },
+  { value: '30d', label: 'Letzte 30 Tage' },
+];
+
 const SensorDetail = () => {
   const { sensorId } = useParams<{ sensorId: string }>();
   const navigate = useNavigate();
   
   const { getSensorById, updateSensor, deleteSensor } = useSensors();
-  const { getSensorDataBySensorId } = useSensorData();
+  const { getSensorDataBySensorId, getSensorDataByTimeRange } = useSensorData();
   
   const [sensor, setSensor] = useState<Sensor | null>(null);
   const [sensorData, setSensorData] = useState<SensorReadingsByType | null>(null);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<string>('24h');
+  
+  // Funktion zur Umwandlung des ausgewählten Zeitraums in Datum und Zeit für die API
+  const getTimeRangeParams = () => {
+    const now = new Date();
+    let startTime = new Date();
+    
+    switch (selectedTimeRange) {
+      case '48h':
+        startTime = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+        break;
+      case '7d':
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '24h':
+      default:
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    }
+    
+    return {
+      startTime: startTime.toISOString(),
+      endTime: now.toISOString()
+    };
+  };
+
+  const fetchSensorData = async () => {
+    if (!sensorId) return;
+    
+    try {
+      const { startTime, endTime } = getTimeRangeParams();
+      
+      // Sensordaten für den ausgewählten Zeitraum abrufen
+      const sensorDataResponse = await getSensorDataByTimeRange(sensorId, startTime, endTime);
+      
+      if (sensorDataResponse && sensorDataResponse.length > 0) {
+        // Konvertiere API-Daten in das vom Frontend erwartete Format
+        const formattedData: SensorReadingsByType = {
+          temperature: [],
+          humidity: [],
+          soilMoisture: [],
+          brightness: []
+        };
+        
+        sensorDataResponse.forEach((data: ApiSensorData) => {
+          const timestamp = data.timestamp;
+          
+          if (data.air_temperature !== undefined) {
+            formattedData.temperature.push({
+              timestamp,
+              value: data.air_temperature
+            });
+          }
+          
+          if (data.air_humidity !== undefined) {
+            formattedData.humidity.push({
+              timestamp,
+              value: data.air_humidity
+            });
+          }
+          
+          if (data.soil_moisture !== undefined) {
+            formattedData.soilMoisture.push({
+              timestamp,
+              value: data.soil_moisture
+            });
+          }
+          
+          if (data.brightness !== undefined) {
+            formattedData.brightness.push({
+              timestamp,
+              value: data.brightness
+            });
+          }
+        });
+        
+        setSensorData(formattedData);
+      } else {
+        setSensorData({
+          temperature: [],
+          humidity: [],
+          soilMoisture: [],
+          brightness: []
+        });
+      }
+    } catch (error) {
+      console.error("Fehler beim Laden der Sensordaten:", error);
+      toast.error("Fehler beim Laden der Sensordaten");
+    }
+  };
   
   useEffect(() => {
     if (!sensorId) return;
@@ -67,52 +169,9 @@ const SensorDetail = () => {
         
         setSensor(foundSensor);
         
-        // Sensordaten aus dem SensorDataContext abrufen
-        const sensorDataResponse = await getSensorDataBySensorId(sensorId);
+        // Initiale Sensordaten laden
+        await fetchSensorData();
         
-        if (sensorDataResponse && sensorDataResponse.length > 0) {
-          // Konvertiere API-Daten in das vom Frontend erwartete Format
-          const formattedData: SensorReadingsByType = {
-            temperature: [],
-            humidity: [],
-            soilMoisture: [],
-            brightness: []
-          };
-          
-          sensorDataResponse.forEach((data: ApiSensorData) => {
-            const timestamp = data.timestamp;
-            
-            if (data.air_temperature !== undefined) {
-              formattedData.temperature.push({
-                timestamp,
-                value: data.air_temperature
-              });
-            }
-            
-            if (data.air_humidity !== undefined) {
-              formattedData.humidity.push({
-                timestamp,
-                value: data.air_humidity
-              });
-            }
-            
-            if (data.soil_moisture !== undefined) {
-              formattedData.soilMoisture.push({
-                timestamp,
-                value: data.soil_moisture
-              });
-            }
-            
-            if (data.brightness !== undefined) {
-              formattedData.brightness.push({
-                timestamp,
-                value: data.brightness
-              });
-            }
-          });
-          
-          setSensorData(formattedData);
-        }
       } catch (error) {
         console.error("Fehler beim Laden der Sensordaten:", error);
         toast.error("Fehler beim Laden der Sensordaten");
@@ -122,7 +181,14 @@ const SensorDetail = () => {
     };
     
     fetchData();
-  }, [sensorId, navigate, getSensorById, getSensorDataBySensorId]);
+  }, [sensorId, navigate, getSensorById]);
+  
+  // Laden neuer Daten, wenn sich der Zeitraum ändert
+  useEffect(() => {
+    if (sensor) {
+      fetchSensorData();
+    }
+  }, [selectedTimeRange]);
   
   // Hilfsfunktion zum Abrufen des neuesten Werts eines bestimmten Datentyps
   const getLatestSensorValue = (dataType: keyof SensorReadingsByType) => {
@@ -245,7 +311,6 @@ const SensorDetail = () => {
   
   return (
     <div className="min-h-screen flex w-full">
-      <AppSidebar />
       <div className="flex-1 p-6 md:p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-6">
@@ -373,6 +438,25 @@ const SensorDetail = () => {
             </Card>
           </div>
           
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Sensordatenanalyse</h2>
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Zeitraum auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_RANGES.map((range) => (
+                    <SelectItem key={range.value} value={range.value}>
+                      {range.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
           <Tabs defaultValue="combined">
             <TabsList className="mb-4">
               <TabsTrigger value="combined">Alle Daten</TabsTrigger>
@@ -390,21 +474,25 @@ const SensorDetail = () => {
                       title="Temperatur" 
                       data={sensorData.temperature}
                       dataType="temperature"
+                      selectedTimeRange={selectedTimeRange}
                     />
                     <SensorDataChart 
                       title="Luftfeuchtigkeit" 
                       data={sensorData.humidity}
                       dataType="humidity"
+                      selectedTimeRange={selectedTimeRange}
                     />
                     <SensorDataChart 
                       title="Bodenfeuchtigkeit" 
                       data={sensorData.soilMoisture}
                       dataType="soilMoisture"
+                      selectedTimeRange={selectedTimeRange}
                     />
                     <SensorDataChart 
                       title="Helligkeit" 
                       data={sensorData.brightness}
                       dataType="brightness"
+                      selectedTimeRange={selectedTimeRange}
                     />
                   </>
                 )}
@@ -417,6 +505,7 @@ const SensorDetail = () => {
                   title="Temperatur" 
                   data={sensorData.temperature}
                   dataType="temperature"
+                  selectedTimeRange={selectedTimeRange}
                   height={500}
                 />
               )}
@@ -428,6 +517,7 @@ const SensorDetail = () => {
                   title="Luftfeuchtigkeit" 
                   data={sensorData.humidity}
                   dataType="humidity"
+                  selectedTimeRange={selectedTimeRange}
                   height={500}
                 />
               )}
@@ -439,6 +529,7 @@ const SensorDetail = () => {
                   title="Bodenfeuchtigkeit" 
                   data={sensorData.soilMoisture}
                   dataType="soilMoisture"
+                  selectedTimeRange={selectedTimeRange}
                   height={500}
                 />
               )}
@@ -450,6 +541,7 @@ const SensorDetail = () => {
                   title="Helligkeit" 
                   data={sensorData.brightness}
                   dataType="brightness"
+                  selectedTimeRange={selectedTimeRange}
                   height={500}
                 />
               )}

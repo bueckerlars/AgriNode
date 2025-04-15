@@ -1,15 +1,14 @@
-
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SensorDataPoint, SensorDataType } from "@/types/sensor";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 
 interface SensorDataChartProps {
   title: string;
   data: SensorDataPoint[];
   dataType: SensorDataType;
   height?: number;
+  selectedTimeRange: string;
 }
 
 const COLORS = {
@@ -33,37 +32,55 @@ const TIME_RANGES = [
   { value: '30d', label: 'Letzte 30 Tage' },
 ];
 
-const SensorDataChart = ({ title, data, dataType, height = 300 }: SensorDataChartProps) => {
-  const [timeRange, setTimeRange] = useState<string>('24h');
+// Erweiterte Datenpunkte mit numerischem Zeitstempel
+interface ProcessedDataPoint {
+  timestamp: string;
+  timestampMs: number;
+  value: number;
+}
+
+const SensorDataChart = ({ title, data, dataType, height = 300, selectedTimeRange }: SensorDataChartProps) => {
   
-  const filteredData = useMemo(() => {
-    // Angenommen, data ist nach Zeitstempel sortiert
-    if (!data || data.length === 0) return [];
-    
+  // Berechne Start- und Endzeitpunkt basierend auf dem ausgewählten Zeitraum
+  const { startTime, endTime, domain } = useMemo(() => {
     const now = new Date();
-    let cutoffTime: Date;
+    let start = new Date();
     
-    switch (timeRange) {
+    switch (selectedTimeRange) {
       case '48h':
-        cutoffTime = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - 48 * 60 * 60 * 1000);
         break;
       case '7d':
-        cutoffTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
       case '30d':
-        cutoffTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
       case '24h':
       default:
-        cutoffTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     }
     
-    return data.filter(point => new Date(point.timestamp) >= cutoffTime);
-  }, [data, timeRange]);
+    return { 
+      startTime: start.toISOString(), 
+      endTime: now.toISOString(),
+      domain: [start.getTime(), now.getTime()]
+    };
+  }, [selectedTimeRange]);
   
-  const formatXAxis = (timestamp: string) => {
+  // Verarbeite die Daten und füge numerische Zeitstempel hinzu
+  const processedData = useMemo((): ProcessedDataPoint[] => {
+    if (!data || data.length === 0) return [];
+    
+    return data.map(point => ({
+      ...point,
+      timestampMs: new Date(point.timestamp).getTime()
+    }));
+  }, [data]);
+  
+  const formatXAxis = (timestamp: number) => {
     const date = new Date(timestamp);
-    if (timeRange === '24h' || timeRange === '48h') {
+    if (selectedTimeRange === '24h' || selectedTimeRange === '48h') {
       return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     } else {
       return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
@@ -76,6 +93,77 @@ const SensorDataChart = ({ title, data, dataType, height = 300 }: SensorDataChar
   const formatTooltipValue = (value: number) => {
     return `${value}${unit}`;
   };
+  
+  // Funktion zum Generieren von Ticks auf der X-Achse
+  const generateXAxisTicks = () => {
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+    const ticks = [];
+    
+    let interval;
+    let numTicks;
+    
+    // Bestimme die Anzahl und den Abstand der Ticks basierend auf dem Zeitbereich
+    switch (selectedTimeRange) {
+      case '24h':
+        numTicks = 6; // Alle 4 Stunden
+        break;
+      case '48h':
+        numTicks = 8; // Alle 6 Stunden
+        break;
+      case '7d':
+        numTicks = 7; // Ein Tick pro Tag
+        break;
+      case '30d':
+        numTicks = 6; // Ungefähr ein Tick alle 5 Tage
+        break;
+      default:
+        numTicks = 6;
+    }
+    
+    interval = Math.floor((end - start) / (numTicks - 1));
+    
+    for (let i = 0; i < numTicks; i++) {
+      ticks.push(start + i * interval);
+    }
+    
+    return ticks;
+  };
+  
+  // Erstelle einen leeren Datenpunkt für den Anfang und das Ende des Zeitbereichs,
+  // um sicherzustellen, dass der gesamte Zeitbereich angezeigt wird
+  const enhancedData = useMemo(() => {
+    if (processedData.length === 0) return [];
+    
+    const startMs = new Date(startTime).getTime();
+    const endMs = new Date(endTime).getTime();
+    
+    // Nur hinzufügen, wenn die Daten nicht bereits den gesamten Bereich abdecken
+    const needsStartBoundary = !processedData.some(point => point.timestampMs <= startMs);
+    const needsEndBoundary = !processedData.some(point => point.timestampMs >= endMs);
+    
+    let result = [...processedData];
+    
+    // Optional: Wenn keine Daten am Anfang/Ende des Bereichs vorhanden sind, 
+    // füge unsichtbare Datenpunkte hinzu, um die Achse zu strecken
+    if (needsStartBoundary) {
+      result.unshift({
+        timestamp: startTime,
+        timestampMs: startMs,
+        value: null as unknown as number // Wird nicht gerendert, hilft nur bei der Skalierung
+      });
+    }
+    
+    if (needsEndBoundary) {
+      result.push({
+        timestamp: endTime,
+        timestampMs: endMs,
+        value: null as unknown as number // Wird nicht gerendert, hilft nur bei der Skalierung
+      });
+    }
+    
+    return result;
+  }, [processedData, startTime, endTime]);
   
   if (!data || data.length === 0) {
     return (
@@ -95,31 +183,23 @@ const SensorDataChart = ({ title, data, dataType, height = 300 }: SensorDataChar
           <CardTitle>{title}</CardTitle>
           <CardDescription>Zeitverlauf der Messungen</CardDescription>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Zeitraum wählen" />
-          </SelectTrigger>
-          <SelectContent>
-            {TIME_RANGES.map((range) => (
-              <SelectItem key={range.value} value={range.value}>
-                {range.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={height}>
           <LineChart
-            data={filteredData}
+            data={enhancedData}
             margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
             <XAxis 
-              dataKey="timestamp" 
-              tickFormatter={formatXAxis} 
+              dataKey="timestampMs" 
+              tickFormatter={formatXAxis}
               tick={{ fontSize: 12 }} 
-              minTickGap={30}
+              domain={domain}
+              type="number"
+              scale="time"
+              allowDataOverflow
+              ticks={generateXAxisTicks()}
             />
             <YAxis 
               tick={{ fontSize: 12 }} 
@@ -148,6 +228,7 @@ const SensorDataChart = ({ title, data, dataType, height = 300 }: SensorDataChar
               activeDot={{ r: 5 }} 
               strokeWidth={2}
               dot={false}
+              connectNulls={true}
             />
           </LineChart>
         </ResponsiveContainer>
