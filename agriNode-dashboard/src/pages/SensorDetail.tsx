@@ -459,6 +459,54 @@ const SensorDetail = () => {
               </CardContent>
             </Card>
           </div>
+
+          <div className="mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Aktuelle Werte</CardTitle>
+                <CardDescription>
+                  Letzte erfasste Sensordaten
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <Thermometer className="text-agrinode-temperature mr-2" size={20} />
+                      <span className="font-medium">Temperatur</span>
+                    </div>
+                    <div className="text-2xl font-bold">{getFormattedSensorValue('temperature')}</div>
+                  </div>
+                  
+                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <Droplet className="text-agrinode-humidity mr-2" size={20} />
+                      <span className="font-medium">Luftfeuchtigkeit</span>
+                    </div>
+                    <div className="text-2xl font-bold">{getFormattedSensorValue('humidity')}</div>
+                  </div>
+                  
+                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <Flower className="text-agrinode-soil mr-2" size={20} />
+                      <span className="font-medium">Bodenfeuchtigkeit</span>
+                    </div>
+                    <div className="text-2xl font-bold">{getFormattedSensorValue('soilMoisture')}</div>
+                  </div>
+                  
+                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <Sun className="text-agrinode-brightness mr-2" size={20} />
+                      <span className="font-medium">Helligkeit</span>
+                    </div>
+                    <div className="text-2xl font-bold">{getFormattedSensorValue('brightness')}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+
           
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Sensordatenanalyse</h2>
