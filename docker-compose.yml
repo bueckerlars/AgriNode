@@ -23,7 +23,7 @@ services:
       context: ./agriNode-dashboard
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "3030:80"
     depends_on:
       - gateway
     restart: unless-stopped
