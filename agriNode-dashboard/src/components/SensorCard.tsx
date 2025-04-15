@@ -177,9 +177,16 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
       return 'Unbekannt';
     }
   };
+
+  const navigateToDetails = () => {
+    navigate(`/sensors/${sensor.sensor_id}`);
+  };
   
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card 
+      className="hover:shadow-md transition-shadow cursor-pointer" 
+      onClick={navigateToDetails}
+    >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div className="flex flex-col">
@@ -188,20 +195,35 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
           </div>
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={(e) => {
+                  e.stopPropagation(); // Verhindert, dass der Klick auf den Button auch die Karte auslöst
+                }}
+              >
                 <MoreVertical className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/sensors/${sensor.sensor_id}`)}>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation(); // Verhindert, dass der Klick auf das Menüitem auch die Karte auslöst
+                navigate(`/sensors/${sensor.sensor_id}`);
+              }}>
                 Details anzeigen
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(sensor)}>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation(); // Verhindert, dass der Klick auf das Menüitem auch die Karte auslöst
+                onEdit(sensor);
+              }}>
                 Bearbeiten
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="text-red-600" 
-                onClick={() => onDelete(sensor.sensor_id)}
+                onClick={(e) => {
+                  e.stopPropagation(); // Verhindert, dass der Klick auf das Menüitem auch die Karte auslöst
+                  onDelete(sensor.sensor_id);
+                }}
               >
                 Löschen
               </DropdownMenuItem>

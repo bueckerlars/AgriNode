@@ -20,10 +20,6 @@ export const Dashboard = () => {
     const [sensorToDelete, setSensorToDelete] = useState<string | null>(null);
     const [sensorToEdit, setSensorToEdit] = useState<Sensor | undefined>(undefined);
     const [activeTab, setActiveTab] = useState("all");
-    
-    useEffect(() => {
-      console.log(sensors);
-    }, []);
 
     useEffect(() => {
       let result = sensors.map(sensor => ({
@@ -73,6 +69,7 @@ export const Dashboard = () => {
     };
     
     const handleEditSensor = (sensor: Sensor) => {
+      console.log(sensor);
       setSensorToEdit(sensor);
       setIsAddDialogOpen(true);
     };

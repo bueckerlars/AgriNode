@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +27,31 @@ const SensorRegistrationForm = ({ isOpen, onClose, editingSensor, onSensorSaved 
   const [formData, setFormData] = useState<RegisterSensorRequest>({
     name: editingSensor?.name || "",
     location: editingSensor?.location || "", 
-    unique_device_id: editingSensor?.unique_device_id || ""
+    unique_device_id: editingSensor?.unique_device_id || "",
+    type: editingSensor?.type || SENSOR_TYPES[0].value
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Update form data when editingSensor changes
+  useEffect(() => {
+    if (editingSensor) {
+      setFormData({
+        name: editingSensor.name || "",
+        location: editingSensor.location || "",
+        unique_device_id: editingSensor.unique_device_id || "",
+        type: editingSensor.type || SENSOR_TYPES[0].value
+      });
+    } else {
+      // Reset form when not editing
+      setFormData({
+        name: "",
+        location: "",
+        unique_device_id: "",
+        type: SENSOR_TYPES[0].value
+      });
+    }
+  }, [editingSensor]);
   
   const handleChange = (field: keyof RegisterSensorRequest, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));

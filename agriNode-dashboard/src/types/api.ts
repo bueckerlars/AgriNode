@@ -62,6 +62,7 @@ export interface RegisterSensorRequest {
   name: string;
   location?: string;
   unique_device_id: string;
+  type: string;
 }
 
 export interface UpdateSensorRequest {
