@@ -7,15 +7,13 @@ import {
   User
 } from '@/types/api';
 
-const API_BASE_URL = 'http://localhost:5066';
-
 const authApi = {
   /**
    * Meldet einen Benutzer an
    */
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>(
-      `${API_BASE_URL}/api/auth/login`,
+      `/auth/login`,
       data
     );
     return response.data;
@@ -26,7 +24,7 @@ const authApi = {
    */
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>(
-      `${API_BASE_URL}/api/auth/register`,
+      `/auth/register`,
       data
     );
     return response.data;
@@ -38,7 +36,7 @@ const authApi = {
   refreshToken: async (authToken: string): Promise<AuthResponse> => {
     // Token will be added automatically by the interceptor
     const response = await apiClient.post<AuthResponse>(
-      `${API_BASE_URL}/api/auth/refresh`
+      `/auth/refresh`
     );
     return response.data;
   },
@@ -47,7 +45,7 @@ const authApi = {
    * Meldet den Benutzer ab
    */
   logout: async (): Promise<void> => {
-    await apiClient.post(`${API_BASE_URL}/api/auth/logout`);
+    await apiClient.post(`/auth/logout`);
   },
 
   /**
@@ -56,7 +54,7 @@ const authApi = {
   getProfile: async (authToken: string): Promise<User> => {
     // Token will be added automatically by the interceptor
     const response = await apiClient.get<User>(
-      `${API_BASE_URL}/api/auth/me`
+      `/auth/me`
     );
     return response.data;
   },
@@ -66,7 +64,7 @@ const authApi = {
    */
   changePassword: async (data: ChangePasswordRequest): Promise<void> => {
     await apiClient.post(
-      `${API_BASE_URL}/api/auth/change-password`, 
+      `/auth/change-password`, 
       data
     );
   },

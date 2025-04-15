@@ -6,15 +6,13 @@ import {
   UpdateSensorRequest 
 } from '@/types/api';
 
-const API_BASE_URL = 'http://localhost:5066';
-
 const sensorApi = {
   /**
    * Ruft alle Sensoren des angemeldeten Benutzers ab
    */
   getAllSensors: async (): Promise<Sensor[]> => {
     const response = await apiClient.get<ApiResponse<Sensor[]>>(
-      `${API_BASE_URL}/api/sensors`
+      `/sensors`
     );
     return response.data.data || [];
   },
@@ -24,7 +22,7 @@ const sensorApi = {
    */
   registerSensor: async (data: RegisterSensorRequest): Promise<Sensor> => {
     const response = await apiClient.post<ApiResponse<Sensor>>(
-      `${API_BASE_URL}/api/sensors/register`,
+      `/sensors/register`,
       data
     );
     return response.data.data as Sensor;
@@ -35,7 +33,7 @@ const sensorApi = {
    */
   getSensorById: async (sensorId: string): Promise<Sensor> => {
     const response = await apiClient.get<ApiResponse<Sensor>>(
-      `${API_BASE_URL}/api/sensors/${sensorId}`
+      `/sensors/${sensorId}`
     );
     return response.data.data as Sensor;
   },
@@ -45,7 +43,7 @@ const sensorApi = {
    */
   updateSensor: async (sensorId: string, data: UpdateSensorRequest): Promise<Sensor> => {
     const response = await apiClient.put<ApiResponse<Sensor>>(
-      `${API_BASE_URL}/api/sensors/${sensorId}`,
+      `/sensors/${sensorId}`,
       data
     );
     return response.data.data as Sensor;
@@ -56,7 +54,7 @@ const sensorApi = {
    */
   deleteSensor: async (sensorId: string): Promise<void> => {
     await apiClient.delete(
-      `${API_BASE_URL}/api/sensors/${sensorId}`
+      `/sensors/${sensorId}`
     );
   }
 };
