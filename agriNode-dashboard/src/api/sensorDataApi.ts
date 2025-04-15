@@ -60,9 +60,12 @@ const sensorDataApi = {
   /**
    * Ruft alle Daten für einen bestimmten Sensor ab
    */
-  getSensorDataBySensorId: async (sensorId: string): Promise<SensorData[]> => {
+  getSensorDataBySensorId: async (sensorId: string, signal?: AbortSignal): Promise<SensorData[]> => {
     const response = await apiClient.get<SensorData[]>(
-      `/sensor-data/sensor/${sensorId}`
+      `/sensor-data/sensor/${sensorId}`,
+      {
+        signal // Pass the signal to axios
+      }
     );
     return response.data;
   },
@@ -83,7 +86,8 @@ const sensorDataApi = {
   getSensorDataByTimeRange: async (
     sensorId: string, 
     startTime: string, 
-    endTime: string
+    endTime: string,
+    signal?: AbortSignal
   ): Promise<SensorData[]> => {
     const response = await apiClient.get<SensorData[]>(
       `/sensor-data/sensor/${sensorId}/timerange`,
@@ -91,7 +95,8 @@ const sensorDataApi = {
         params: {
           startTime,
           endTime
-        }
+        },
+        signal // Pass the signal to axios
       }
     );
     return response.data;

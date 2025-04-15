@@ -1,25 +1,37 @@
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
+
+  // Überwache User-Status Änderungen für die Navigation
+  useEffect(() => {
+    if (user && isLoggingIn) {
+      setIsLoggingIn(false);
+      navigate("/");
+    }
+  }, [user, isLoggingIn, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoggingIn(true);
+    
     try {
       await login({ email, password });
-      console.log("Login successful");
-      navigate("/");
+      // Die Navigation erfolgt jetzt im useEffect, nachdem der User-Status aktualisiert wurde
+      toast.success("Login erfolgreich!");
     } catch (error) {
-      toast.error("Login failed. Please check your credentials and try again.");
-      console.error("Login failed", error);
+      setIsLoggingIn(false);
+      toast.error("Login fehlgeschlagen. Bitte überprüfe deine Anmeldedaten und versuche es erneut.");
+      console.error("Login fehlgeschlagen", error);
     }
   };
 
@@ -29,7 +41,9 @@ export const Login = () => {
       <form className="flex flex-col gap-4 w-full max-w-sm" onSubmit={handleLogin}>
         <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full" />
         <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full" />
-        <Button type="submit" className="w-full">Login</Button>
+        <Button type="submit" className="w-full" disabled={isLoggingIn}>
+          {isLoggingIn ? "Anmeldung..." : "Login"}
+        </Button>
       </form>
       <p className="mt-4">
         Don't have an account? <Link to="/register" className="text-primary underline">Register</Link>

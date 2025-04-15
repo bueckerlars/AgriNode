@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { 
   ChevronLeft, 
   Thermometer, 
@@ -56,10 +56,16 @@ const SensorDetail = () => {
   const [sensor, setSensor] = useState<Sensor | null>(null);
   const [sensorData, setSensorData] = useState<SensorReadingsByType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('24h');
   
+  // Add controller reference for fetch cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Add fetch timeout reference
+  const fetchTimeoutRef = useRef<number | null>(null);
+
   // Funktion zur Umwandlung des ausgewählten Zeitraums in Datum und Zeit für die API
   const getTimeRangeParams = () => {
     const now = new Date();
@@ -88,12 +94,41 @@ const SensorDetail = () => {
 
   const fetchSensorData = async () => {
     if (!sensorId) return;
+
+    // Cancel any ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Clear any scheduled fetch
+    if (fetchTimeoutRef.current) {
+      window.clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = null;
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
     
     try {
+      // Set loading state to show user that data is being fetched
+      setDataLoading(true);
+      
       const { startTime, endTime } = getTimeRangeParams();
       
+      // Add a small delay to prevent rapid successive requests
+      await new Promise(resolve => {
+        fetchTimeoutRef.current = window.setTimeout(() => {
+          resolve(null);
+        }, 300);
+      });
+      
       // Sensordaten für den ausgewählten Zeitraum abrufen
-      const sensorDataResponse = await getSensorDataByTimeRange(sensorId, startTime, endTime);
+      const sensorDataResponse = await getSensorDataByTimeRange(
+        sensorId, 
+        startTime, 
+        endTime, 
+        abortControllerRef.current.signal
+      );
       
       if (sensorDataResponse && sensorDataResponse.length > 0) {
         // Konvertiere API-Daten in das vom Frontend erwartete Format
@@ -146,8 +181,14 @@ const SensorDetail = () => {
         });
       }
     } catch (error) {
-      console.error("Fehler beim Laden der Sensordaten:", error);
-      toast.error("Fehler beim Laden der Sensordaten");
+      // Ignore AbortError as it's expected when cancelling requests
+      if ((error as Error).name !== 'AbortError') {
+        console.error("Fehler beim Laden der Sensordaten:", error);
+        toast.error("Fehler beim Laden der Sensordaten");
+      }
+    } finally {
+      setDataLoading(false);
+      abortControllerRef.current = null;
     }
   };
   
@@ -189,6 +230,21 @@ const SensorDetail = () => {
       fetchSensorData();
     }
   }, [selectedTimeRange]);
+
+  // Cleanup function to cancel any in-flight requests when the component unmounts
+  useEffect(() => {
+    return () => {
+      // Cancel any ongoing request when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      // Clear any scheduled fetch
+      if (fetchTimeoutRef.current) {
+        window.clearTimeout(fetchTimeoutRef.current);
+        fetchTimeoutRef.current = null;
+      }
+    };
+  }, []);
   
   // Hilfsfunktion zum Abrufen des neuesten Werts eines bestimmten Datentyps
   const getLatestSensorValue = (dataType: keyof SensorReadingsByType) => {
@@ -404,52 +460,6 @@ const SensorDetail = () => {
             </Card>
           </div>
           
-          <div className="mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Aktuelle Werte</CardTitle>
-                <CardDescription>
-                  Letzte erfasste Sensordaten
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Thermometer className="text-agrinode-temperature mr-2" size={20} />
-                      <span className="font-medium">Temperatur</span>
-                    </div>
-                    <div className="text-2xl font-bold">{getFormattedSensorValue('temperature')}</div>
-                  </div>
-                  
-                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Droplet className="text-agrinode-humidity mr-2" size={20} />
-                      <span className="font-medium">Luftfeuchtigkeit</span>
-                    </div>
-                    <div className="text-2xl font-bold">{getFormattedSensorValue('humidity')}</div>
-                  </div>
-                  
-                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Flower className="text-agrinode-soil mr-2" size={20} />
-                      <span className="font-medium">Bodenfeuchtigkeit</span>
-                    </div>
-                    <div className="text-2xl font-bold">{getFormattedSensorValue('soilMoisture')}</div>
-                  </div>
-                  
-                  <div className="flex flex-col p-4 bg-agrinode-light rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Sun className="text-agrinode-brightness mr-2" size={20} />
-                      <span className="font-medium">Helligkeit</span>
-                    </div>
-                    <div className="text-2xl font-bold">{getFormattedSensorValue('brightness')}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Sensordatenanalyse</h2>
             <div className="flex items-center space-x-2">
@@ -466,6 +476,11 @@ const SensorDetail = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {dataLoading && (
+                <div className="ml-2 animate-pulse text-sm text-muted-foreground">
+                  Daten werden geladen...
+                </div>
+              )}
             </div>
           </div>
           

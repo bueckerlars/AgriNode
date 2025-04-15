@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sensor, SensorReadingsByType, SensorDataPoint } from "@/types/sensor";
 import { SensorData as ApiSensorData } from "@/types/api";
 import { formatDistanceToNow } from "date-fns";
@@ -22,6 +22,9 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
   const [sensorData, setSensorData] = useState<SensorReadingsByType | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // Reference for abort controller to cancel requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
   // Get sensor data context
   const { getSensorDataBySensorId } = useSensorData();
   
@@ -29,8 +32,12 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
     const fetchSensorData = async () => {
       try {
         setLoading(true);
+        // Create a new AbortController instance
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+
         // Get sensor readings from context
-        const apiSensorData = await getSensorDataBySensorId(sensor.sensor_id || "");
+        const apiSensorData = await getSensorDataBySensorId(sensor.sensor_id || "", signal);
         
         // Convert API data to the format expected by the component
         if (apiSensorData && apiSensorData.length > 0) {
@@ -76,7 +83,11 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
           setSensorData(formattedData);
         }
       } catch (error) {
-        console.error("Fehler beim Laden der Sensordaten:", error);
+        if (error.name === "AbortError") {
+          console.log("Fetch aborted");
+        } else {
+          console.error("Fehler beim Laden der Sensordaten:", error);
+        }
       } finally {
         setLoading(false);
       }
@@ -85,6 +96,13 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
     if (sensor.sensor_id) {
       fetchSensorData();
     }
+
+    return () => {
+      // Abort the fetch request if the component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [sensor.sensor_id, getSensorDataBySensorId]);
   
   // Hilfsfunktion, um den aktuellsten Wert für einen bestimmten Sensortyp zu holen

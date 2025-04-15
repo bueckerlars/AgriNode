@@ -1,4 +1,5 @@
 import SensorCard from "@/components/SensorCard";
+import SensorCardList from "@/components/SensorCardList";
 import SensorRegistrationForm from "@/components/SensorRegistrationForm";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -155,16 +156,11 @@ export const Dashboard = () => {
                   <p className="text-muted-foreground">Sensoren werden geladen...</p>
                 </div>
               ) : filteredSensors.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredSensors.map((sensor) => (
-                    <SensorCard
-                      key={sensor.sensor_id}
-                      sensor={sensor}
-                      onEdit={handleEditSensor}
-                      onDelete={confirmDeleteSensor}
-                    />
-                  ))}
-                </div>
+                <SensorCardList
+                  sensors={filteredSensors}
+                  onEdit={handleEditSensor}
+                  onDelete={confirmDeleteSensor}
+                />
               ) : (
                 <div className="text-center py-12">
                   <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
@@ -190,16 +186,11 @@ export const Dashboard = () => {
                   <p className="text-muted-foreground">Sensoren werden geladen...</p>
                 </div>
               ) : filteredSensors.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredSensors.map((sensor) => (
-                    <SensorCard
-                      key={sensor.sensor_id}
-                      sensor={sensor}
-                      onEdit={handleEditSensor}
-                      onDelete={confirmDeleteSensor}
-                    />
-                  ))}
-                </div>
+                <SensorCardList
+                  sensors={filteredSensors}
+                  onEdit={handleEditSensor}
+                  onDelete={confirmDeleteSensor}
+                />
               ) : (
                 <div className="text-center py-12">
                   <h2 className="text-xl font-medium mb-2">Keine Sensoren mit kritischem Batteriestand</h2>
@@ -216,16 +207,11 @@ export const Dashboard = () => {
                   <p className="text-muted-foreground">Sensoren werden geladen...</p>
                 </div>
               ) : filteredSensors.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredSensors.map((sensor) => (
-                    <SensorCard
-                      key={sensor.sensor_id}
-                      sensor={sensor}
-                      onEdit={handleEditSensor}
-                      onDelete={confirmDeleteSensor}
-                    />
-                  ))}
-                </div>
+                <SensorCardList
+                  sensors={filteredSensors}
+                  onEdit={handleEditSensor}
+                  onDelete={confirmDeleteSensor}
+                />
               ) : (
                 <div className="text-center py-12">
                   <h2 className="text-xl font-medium mb-2">Keine Sensoren mit niedrigem Batteriestand</h2>
@@ -242,16 +228,11 @@ export const Dashboard = () => {
                   <p className="text-muted-foreground">Sensoren werden geladen...</p>
                 </div>
               ) : filteredSensors.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredSensors.map((sensor) => (
-                    <SensorCard
-                      key={sensor.sensor_id}
-                      sensor={sensor}
-                      onEdit={handleEditSensor}
-                      onDelete={confirmDeleteSensor}
-                    />
-                  ))}
-                </div>
+                <SensorCardList
+                  sensors={filteredSensors}
+                  onEdit={handleEditSensor}
+                  onDelete={confirmDeleteSensor}
+                />
               ) : (
                 <div className="text-center py-12">
                   <h2 className="text-xl font-medium mb-2">Keine Sensoren mit gutem Batteriestand</h2>

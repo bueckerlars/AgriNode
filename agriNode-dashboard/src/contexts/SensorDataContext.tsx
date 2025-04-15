@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 interface SensorDataContextType {
   loading: boolean;
   error: string | null;
-  getSensorDataBySensorId: (sensorId: string) => Promise<SensorData[]>;
-  getSensorDataByTimeRange: (sensorId: string, startTime: string, endTime: string) => Promise<SensorData[]>;
+  getSensorDataBySensorId: (sensorId: string, signal?: AbortSignal) => Promise<SensorData[]>;
+  getSensorDataByTimeRange: (sensorId: string, startTime: string, endTime: string, signal?: AbortSignal) => Promise<SensorData[]>;
   deleteSensorData: (dataId: string) => Promise<void>;
   deleteAllSensorDataBySensorId: (sensorId: string) => Promise<void>;
 }
@@ -30,35 +30,37 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getSensorDataBySensorId = async (sensorId: string) => {
+  const getSensorDataBySensorId = async (sensorId: string, signal?: AbortSignal) => {
     try {
-      setLoading(true);
       setError(null);
-      const data = await sensorDataApi.getSensorDataBySensorId(sensorId);
+      // Don't set global loading state here to match our pattern with getSensorDataByTimeRange
+      const data = await sensorDataApi.getSensorDataBySensorId(sensorId, signal);
       return data;
     } catch (error) {
-      console.error('Fehler beim Abrufen der Sensordaten:', error);
-      setError('Fehler beim Laden der Sensordaten');
-      toast.error('Fehler beim Laden der Sensordaten');
+      // Only log and show errors if not caused by AbortController
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Fehler beim Abrufen der Sensordaten:', error);
+        setError('Fehler beim Laden der Sensordaten');
+        toast.error('Fehler beim Laden der Sensordaten');
+      }
       return [];
-    } finally {
-      setLoading(false);
     }
   };
 
-  const getSensorDataByTimeRange = async (sensorId: string, startTime: string, endTime: string) => {
+  const getSensorDataByTimeRange = async (sensorId: string, startTime: string, endTime: string, signal?: AbortSignal) => {
     try {
-      setLoading(true);
       setError(null);
-      const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, startTime, endTime);
+      // We don't set global loading state here anymore since we manage it in the component
+      const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, startTime, endTime, signal);
       return data;
     } catch (error) {
-      console.error('Fehler beim Abrufen der Sensordaten im Zeitraum:', error);
-      setError('Fehler beim Laden der Sensordaten im Zeitraum');
-      toast.error('Fehler beim Laden der Sensordaten im angegebenen Zeitraum');
+      // Only log and show errors if not caused by AbortController
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Fehler beim Abrufen der Sensordaten im Zeitraum:', error);
+        setError('Fehler beim Laden der Sensordaten im Zeitraum');
+        toast.error('Fehler beim Laden der Sensordaten im angegebenen Zeitraum');
+      }
       return [];
-    } finally {
-      setLoading(false);
     }
   };
 
