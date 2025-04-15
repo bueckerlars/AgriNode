@@ -1,14 +1,18 @@
+import AppSidebar from "./AppSidebar";
+import { SidebarInset } from "./ui/sidebar";
+
 interface AppLayoutProps {
     children: React.ReactNode;
 }
 
-const AppLayout = ({children}: AppLayoutProps) => {
+export const AppLayout = ({children}: AppLayoutProps) => {
 
     return (
-        <>
-            {children}
-        </>
+        <div className="min-h-screen flex w-full">
+              <AppSidebar />
+              <SidebarInset>
+                {children}
+              </SidebarInset>
+        </div>
     );
 }
-
-export default AppLayout;

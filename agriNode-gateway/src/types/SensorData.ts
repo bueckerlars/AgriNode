@@ -5,7 +5,6 @@ export interface SensorData {
     air_humidity: number;
     air_temperature: number;
     soil_moisture: number;
-    soil_temperature: number;
     brightness: number;
     battery_level: number;
 }

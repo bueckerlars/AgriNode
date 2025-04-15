@@ -2,8 +2,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useAuth } from "../provider/AuthProvider";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Register = () => {
   const { register } = useAuth();
@@ -25,7 +25,7 @@ export const Register = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 w-full">
       <h1 className="text-2xl font-bold mb-4">Register</h1>
       <form className="flex flex-col gap-4 w-full max-w-sm" onSubmit={handleRegister}>
         <Input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full" />

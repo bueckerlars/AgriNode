@@ -20,6 +20,10 @@ class SensorController {
                 return;
             }
             
+            // Set default values for new fields if not provided
+            if (!sensorData.type) sensorData.type = 'generic';
+            if (!sensorData.batteryLevel) sensorData.batteryLevel = 100;
+            
             const newSensor = await sensorService.registerSensor(userId, sensorData);
             
             res.status(201).json({
@@ -223,6 +227,71 @@ class SensorController {
             res.status(500).json({ 
                 success: false, 
                 message: 'Failed to retrieve user sensors', 
+                error: error.message 
+            });
+        }
+    }
+
+    /**
+     * Manually update sensor status (battery level and last updated timestamp)
+     */
+    async updateSensorStatus(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = req.user.id;
+            const { sensorId } = req.params;
+            const { batteryLevel } = req.body;
+            
+            if (!sensorId) {
+                res.status(400).json({ 
+                    success: false, 
+                    message: 'Sensor ID is required' 
+                });
+                return;
+            }
+            
+            // First check if user owns this sensor
+            const sensor = await sensorService.getSensorById(sensorId, userId);
+            
+            if (!sensor) {
+                res.status(404).json({ 
+                    success: false, 
+                    message: 'Sensor not found' 
+                });
+                return;
+            }
+            
+            const updatedSensor = await sensorService.updateSensorStatus(
+                sensorId, 
+                batteryLevel
+            );
+            
+            res.status(200).json({
+                success: true,
+                message: 'Sensor status updated successfully',
+                data: updatedSensor
+            });
+        } catch (error: any) {
+            logger.error(`Error in SensorController.updateSensorStatus: ${error.message}`);
+            
+            if (error.message.includes('not found')) {
+                res.status(404).json({ 
+                    success: false, 
+                    message: error.message 
+                });
+                return;
+            }
+            
+            if (error.message.includes('permission')) {
+                res.status(403).json({ 
+                    success: false, 
+                    message: error.message 
+                });
+                return;
+            }
+            
+            res.status(500).json({ 
+                success: false, 
+                message: 'Failed to update sensor status', 
                 error: error.message 
             });
         }

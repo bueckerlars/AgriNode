@@ -11,7 +11,6 @@ class SensorData extends Model<SensorDataType, SensorDataCreationAttributes> imp
   public air_humidity!: number;
   public air_temperature!: number;
   public soil_moisture!: number;
-  public soil_temperature!: number;
   public brightness!: number;
   public battery_level!: number;
 
@@ -49,10 +48,6 @@ export default (sequelize: Sequelize) => {
         allowNull: true,
       },
       soil_moisture: {
-        type: DataTypes.FLOAT,
-        allowNull: true,
-      },
-      soil_temperature: {
         type: DataTypes.FLOAT,
         allowNull: true,
       },

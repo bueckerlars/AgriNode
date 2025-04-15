@@ -2,18 +2,34 @@ import { FindOptions, WhereOptions } from 'sequelize';
 import databaseController from '../controller/DatabaseController';
 import logger from '../config/logger';
 import { SensorData } from '../types';
+import sensorService from './SensorService';
 
 class SensorDataService {
   /**
-   * Create new sensor data record
+   * Create new sensor data record and update sensor status
    */
   async createSensorData(sensorData: Partial<SensorData>): Promise<SensorData | null> {
     try {
       logger.info('Creating new sensor data record' + JSON.stringify(sensorData));
 
       const sensor = await databaseController.findSensorByDeviceId(sensorData.sensor_id!);
-      sensorData.sensor_id = sensor?.sensor_id;
-      return await databaseController.createSensorData(sensorData);
+      
+      if (!sensor) {
+        throw new Error(`Sensor with device ID ${sensorData.sensor_id} not found`);
+      }
+      
+      sensorData.sensor_id = sensor.sensor_id;
+      const newSensorData = await databaseController.createSensorData(sensorData);
+      
+      // Update the sensor's lastUpdated and batteryLevel if available
+      if (newSensorData) {
+        await sensorService.updateSensorStatus(
+          sensor.sensor_id, 
+          sensorData.battery_level // Pass battery level if available
+        );
+      }
+      
+      return newSensorData;
     } catch (error) {
       logger.error(`Error creating sensor data: ${error instanceof Error ? error.message : String(error)}`);
       throw error;

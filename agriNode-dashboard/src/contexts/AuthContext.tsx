@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthResponse, ChangePasswordRequest, LoginRequest, RegisterRequest, User } from '@/types/api';
 import authApi from '@/api/authApi';
+import { setAuthTokenForApi } from '@/api/apiClient';
 
 // Define AuthContextType
 interface AuthContextType {
@@ -20,10 +21,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Custom setter for authToken that also updates the API client
+  const updateAuthToken = (token: string | null) => {
+    setAuthToken(token);
+    setAuthTokenForApi(token);
+  };
+
   const login = async (loginRequest: LoginRequest) => {
     try {
       const response = await authApi.login(loginRequest);
-      setAuthToken(response.accessToken);
+      updateAuthToken(response.accessToken);
       await fetchUser();
       return response;
     } catch (error) {
@@ -35,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (registerRequest: RegisterRequest) => {
     try {
       const response = await authApi.register(registerRequest);
-      setAuthToken(response.accessToken);
+      updateAuthToken(response.accessToken);
       await fetchUser();
       return response;
     } catch (error) {
@@ -69,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshAccessToken = async () => {
     try {
       const response = await authApi.refreshToken(authToken!);
-      setAuthToken(response.accessToken);
+      updateAuthToken(response.accessToken);
       return response;
     } catch (error) {
       console.error('Token refresh failed:', error);
@@ -86,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Logout failed:', error);
     } finally {
       // Always clear local auth state, even if the API call fails
-      setAuthToken(null);
+      updateAuthToken(null);
       setUser(null);
     }
   };
@@ -122,6 +129,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   }, [authToken]);
+
+  // Set initial token when component mounts
+  useEffect(() => {
+    if (authToken) {
+      setAuthTokenForApi(authToken);
+    }
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, authToken, loading, login, register, logout, changePassword }}>

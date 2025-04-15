@@ -14,7 +14,9 @@ const router = Router();
  *         - sensor_id
  *         - user_id
  *         - name
+ *         - type
  *         - unique_device_id
+ *         - batteryLevel
  *         - registered_at
  *         - updated_at
  *       properties:
@@ -27,12 +29,24 @@ const router = Router();
  *         name:
  *           type: string
  *           description: Name of the sensor
+ *         type:
+ *           type: string
+ *           description: Type of the sensor (e.g., soil, weather, light)
+ *         location:
+ *           type: string
+ *           description: Optional location of the sensor
  *         description:
  *           type: string
  *           description: Optional description of the sensor
  *         unique_device_id:
  *           type: string
  *           description: Unique device ID for hardware identification
+ *         batteryLevel:
+ *           type: number
+ *           format: float
+ *           minimum: 0
+ *           maximum: 100
+ *           description: Current battery level of the sensor (0-100)
  *         registered_at:
  *           type: string
  *           format: date-time
@@ -40,7 +54,7 @@ const router = Router();
  *         updated_at:
  *           type: string
  *           format: date-time
- *           description: Date when the sensor was last updated
+ *           description: Date when the sensor information was last updated
  */
 
 /**
@@ -104,9 +118,13 @@ router.get('/', SensorController.getUserSensors);
  *               name:
  *                 type: string
  *                 description: Name of the sensor
- *               description:
+ *               type:
  *                 type: string
- *                 description: Optional description of the sensor
+ *                 description: Type of the sensor (e.g., soil, weather, light)
+ *                 default: generic
+ *               location:
+ *                 type: string
+ *                 description: Optional location of the sensor
  *               unique_device_id:
  *                 type: string
  *                 description: Unique device ID for hardware identification
@@ -203,6 +221,12 @@ router.get('/:sensorId', SensorController.getSensorInfo);
  *               name:
  *                 type: string
  *                 description: New name for the sensor
+ *               type:
+ *                 type: string
+ *                 description: Type of the sensor (e.g., soil, weather, light)
+ *               location:
+ *                 type: string
+ *                 description: Location of the sensor
  *               description:
  *                 type: string
  *                 description: New description for the sensor
@@ -276,5 +300,62 @@ router.put('/:sensorId', SensorController.updateSensorInfo);
  *         description: Internal server error
  */
 router.delete('/:sensorId', SensorController.unregisterSensor);
+
+/**
+ * @swagger
+ * /api/sensors/{sensorId}/status:
+ *   patch:
+ *     summary: Update sensor status (battery level and last updated timestamp)
+ *     tags: [Sensors]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sensorId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the sensor to update status
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               batteryLevel:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 description: Current battery level of the sensor (0-100)
+ *     responses:
+ *       200:
+ *         description: Sensor status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Sensor status updated successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/Sensor'
+ *       400:
+ *         description: Bad request, missing sensor ID
+ *       401:
+ *         description: Unauthorized, authentication required
+ *       403:
+ *         description: Forbidden, no permission to update this sensor
+ *       404:
+ *         description: Sensor not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:sensorId/status', SensorController.updateSensorStatus);
 
 export default router;

@@ -7,8 +7,11 @@ class Sensor extends Model<SensorType, SensorCreationAttributes> implements Sens
   public sensor_id!: string;
   public user_id!: string;
   public name!: string;
+  public type!: string;
+  public location?: string;
   public description?: string;
   public unique_device_id!: string;
+  public batteryLevel?: number;
   public registered_at!: Date;
   public updated_at!: Date;
 
@@ -36,7 +39,11 @@ export default (sequelize: Sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      description: {
+      type: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      location: {
         type: DataTypes.STRING,
         allowNull: true,
       },
@@ -44,6 +51,11 @@ export default (sequelize: Sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
+      },
+      batteryLevel: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 100.0,
       },
       registered_at: {
         type: DataTypes.DATE,

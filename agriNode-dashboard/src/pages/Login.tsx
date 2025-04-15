@@ -2,7 +2,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useAuth } from "../provider/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export const Login = () => {
@@ -24,7 +24,7 @@ export const Login = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 w-full">
       <h1 className="text-2xl font-bold mb-4">Login</h1>
       <form className="flex flex-col gap-4 w-full max-w-sm" onSubmit={handleLogin}>
         <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full" />

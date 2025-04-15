@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { Sensor } from '../types/Sensor';
 import databaseController from '../controller/DatabaseController';
 import logger from '../config/logger';
-import { WhereOptions } from 'sequelize';
 
 class SensorService {
     /**
@@ -26,9 +25,11 @@ class SensorService {
             const newSensor = await databaseController.createSensor({
                 sensor_id: uuidv4(),
                 user_id: userId,
-                name: sensorData.name,
-                description: sensorData.description,
+                name: sensorData.name || 'Unnamed Sensor',
+                type: sensorData.type || 'generic',
+                location: sensorData.location,
                 unique_device_id: sensorData.unique_device_id,
+                batteryLevel: sensorData.batteryLevel || 100,
                 registered_at: new Date(),
                 updated_at: new Date()
             });
@@ -171,6 +172,34 @@ class SensorService {
             return updatedSensor;
         } catch (error) {
             logger.error(`Error in SensorService.updateSensor: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Update sensor battery level and last updated timestamp
+     */
+    async updateSensorStatus(sensorId: string, batteryLevel?: number): Promise<Sensor | null> {
+        try {
+            logger.info(`Updating sensor status for ID: ${sensorId}`);
+            
+            const updateData: Partial<Sensor> = {
+                updated_at: new Date(),
+            };
+            
+            // Only update battery level if provided
+            if (batteryLevel !== undefined) {
+                updateData.batteryLevel = batteryLevel;
+            }
+            
+            await databaseController.updateSensor(
+                updateData, 
+                { where: { sensor_id: sensorId } }
+            );
+            
+            return await databaseController.findSensorById(sensorId);
+        } catch (error) {
+            logger.error(`Error in SensorService.updateSensorStatus: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }

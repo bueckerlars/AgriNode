@@ -325,41 +325,35 @@ router.delete('/sensor/:sensorId', SensorDataController.deleteAllSensorData);
  *         - data_id
  *         - sensor_id
  *         - timestamp
- *         - air_humidity
- *         - air_temperature
- *         - soil_moisture
- *         - soil_temperature
- *         - brightness
- *         - battery_level
+ *         - value
+ *         - unit
  *       properties:
  *         data_id:
  *           type: string
- *           description: Unique identifier for the data record
+ *           description: Unique identifier for the data point
  *         sensor_id:
  *           type: string
- *           description: ID of the sensor that collected this data
+ *           description: ID of the sensor that generated this data
  *         timestamp:
  *           type: string
  *           format: date-time
- *           description: Time when data was collected
- *         air_humidity:
+ *           description: Timestamp when the data was recorded
+ *         value:
  *           type: number
- *           description: Air humidity percentage
- *         air_temperature:
- *           type: number
- *           description: Air temperature in degrees Celsius
- *         soil_moisture:
- *           type: number
- *           description: Soil moisture percentage
- *         soil_temperature:
- *           type: number
- *           description: Soil temperature in degrees Celsius
- *         brightness:
- *           type: number
- *           description: Light level in lux
+ *           description: Measured value
+ *         unit:
+ *           type: string
+ *           description: Unit of measurement
  *         battery_level:
  *           type: number
- *           description: Battery level percentage
+ *           format: float
+ *           description: Optional battery level at time of measurement
+ *           minimum: 0
+ *           maximum: 100
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Date when the data record was created
  *   securitySchemes:
  *     bearerAuth:
  *       type: http

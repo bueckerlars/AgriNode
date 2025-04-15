@@ -1,13 +1,13 @@
-import AppLayout from "@/components/AppLayout";
+import { AppLayout } from "@/components/AppLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { Dashboard } from "@/pages/Dashboard";
+import { Login } from "@/pages/Login";
+import NotFound from "@/pages/NotFound";
+import { Profile } from "@/pages/Profile";
+import { Register } from "@/pages/Register";
+import SensorDetail from "@/pages/SensorDetail";
+import { Settings } from "@/pages/Settings";
 import { Outlet } from "react-router-dom";
-import { SensorDetails } from "./pages/SensorDetails";
-import { Dashboard } from "./pages/Dashboard";
-import { Settings } from "./pages/Settings";
-import { Profile } from "./pages/Profile";
-import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
-import NotFound from "./pages/NotFound";
-import ProtectedRoute from "./components/ProtectedRoute";
 
 const routes = [
     {
@@ -43,22 +43,22 @@ const routes = [
                 )
             },
             {
-                path: "sensor/:sensorId",
+                path: "sensors/:sensorId",
                 element: (
                     <ProtectedRoute>
-                        <SensorDetails />
+                        <SensorDetail />
                     </ProtectedRoute>
                 ) 
             },
-            {
-                path: "login",
-                element: <Login />
-            },
-            {
-                path: "register",
-                element: <Register />
-            }
         ]
+    },
+    {
+        path: "login",
+        element: <Login />
+    },
+    {
+        path: "register",
+        element: <Register />
     },
     {
         path: "*",
