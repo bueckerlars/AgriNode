@@ -39,6 +39,11 @@ interface ProcessedDataPoint {
   value: number;
 }
 
+// Konstanten für die Umrechnung der Bodenfeuchtigkeit
+const SOIL_MOISTURE_MIN = 300; // 100% feucht
+const SOIL_MOISTURE_MAX = 650; // 0% feucht (trocken)
+const SOIL_MOISTURE_RANGE = SOIL_MOISTURE_MAX - SOIL_MOISTURE_MIN;
+
 const SensorDataChart = ({ title, data, dataType, height = 300, selectedTimeRange }: SensorDataChartProps) => {
   
   // Berechne Start- und Endzeitpunkt basierend auf dem ausgewählten Zeitraum
@@ -72,11 +77,25 @@ const SensorDataChart = ({ title, data, dataType, height = 300, selectedTimeRang
   const processedData = useMemo((): ProcessedDataPoint[] => {
     if (!data || data.length === 0) return [];
     
-    return data.map(point => ({
-      ...point,
-      timestampMs: new Date(point.timestamp).getTime()
-    }));
-  }, [data]);
+    return data.map(point => {
+      let value = point.value;
+      
+      // Für Bodenfeuchtigkeit: umrechnen der Rohwerte in Prozent (wie in SensorDetail.tsx und SensorCard.tsx)
+      if (dataType === 'soilMoisture') {
+        // Stelle sicher, dass der Wert innerhalb der Grenzen liegt
+        const boundedValue = Math.max(SOIL_MOISTURE_MIN, Math.min(SOIL_MOISTURE_MAX, value));
+        
+        // Berechne den Prozentsatz: invertiert, da niedrigere Werte höhere Feuchtigkeit bedeuten
+        value = Math.round(((SOIL_MOISTURE_MAX - boundedValue) / SOIL_MOISTURE_RANGE) * 100);
+      }
+      
+      return {
+        ...point,
+        value,
+        timestampMs: new Date(point.timestamp).getTime()
+      };
+    });
+  }, [data, dataType]);
   
   const formatXAxis = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -176,6 +195,19 @@ const SensorDataChart = ({ title, data, dataType, height = 300, selectedTimeRang
     );
   }
   
+  // Bestimme den passenden Y-Achsen-Domain basierend auf dem Datentyp
+  const getYAxisDomain = () => {
+    switch(dataType) {
+      case 'temperature':
+        return ['auto', 'auto']; // Temperatur kann negativ sein
+      case 'soilMoisture':
+      case 'humidity':
+      case 'brightness':
+      default:
+        return [0, 100]; // Prozentuale Werte von 0-100%
+    }
+  };
+  
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -204,7 +236,7 @@ const SensorDataChart = ({ title, data, dataType, height = 300, selectedTimeRang
             <YAxis 
               tick={{ fontSize: 12 }} 
               tickFormatter={(value) => `${value}${unit}`}
-              domain={dataType === 'temperature' ? ['auto', 'auto'] : [0, 100]}
+              domain={getYAxisDomain()}
             />
             <Tooltip 
               formatter={(value: number) => formatTooltipValue(value)}

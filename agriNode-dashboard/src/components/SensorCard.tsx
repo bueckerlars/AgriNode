@@ -108,7 +108,7 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
     
     switch(dataType) {
       case 'temperature':
-        return `${value}°C`;
+        return `${value.toFixed(0)}°C`;
       case 'humidity':
         return `${value.toFixed(0)}%`;
       case 'soilMoisture':

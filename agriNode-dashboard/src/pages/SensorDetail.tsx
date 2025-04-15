@@ -213,9 +213,21 @@ const SensorDetail = () => {
       case 'temperature':
         return `${value}°C`;
       case 'humidity':
+        return `${value.toFixed(0)}%`;
       case 'soilMoisture':
+        // Convert from raw sensor range (650=dry, 300=wet) to percentage (0-100%)
+        const MIN_VALUE = 300; // 100% wet
+        const MAX_VALUE = 650; // 0% wet (dry)
+        const range = MAX_VALUE - MIN_VALUE;
+        
+        // Ensure the value is within bounds
+        const boundedValue = Math.max(MIN_VALUE, Math.min(MAX_VALUE, value));
+        
+        // Calculate percentage: inverted since lower values mean higher moisture
+        const percentage = Math.round(((MAX_VALUE - boundedValue) / range) * 100);
+        return `${percentage}%`;
       case 'brightness':
-        return `${Math.round(value)}%`;
+        return `${value.toFixed(0)} Lux`;
       default:
         return `${value}`;
     }
