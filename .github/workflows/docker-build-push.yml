@@ -1,0 +1,130 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    tags:
+      - 'v*'  # Wird ausgelöst, wenn ein Tag mit 'v' beginnt, z.B. v1.0.0
+
+jobs:
+  checkout:
+    name: Checkout Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+  setup-docker:
+    name: Set up Docker Buildx
+    runs-on: ubuntu-latest
+    needs: checkout
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+  login-docker:
+    name: Login to Docker Hub
+    runs-on: ubuntu-latest
+    needs: setup-docker
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+  extract-version:
+    name: Extract Version Information
+    runs-on: ubuntu-latest
+    needs: login-docker
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Extract full tag name
+        id: get_full_tag
+        run: |
+          if [[ "${GITHUB_REF}" =~ refs/tags/v(.+) ]]; then
+            echo "FULL_TAG=${BASH_REMATCH[1]}" >> $GITHUB_ENV
+          else
+            echo "Error: Tag does not match expected format 'v*'" >&2
+            exit 1
+          fi
+
+      - name: Display version information
+        run: |
+          echo "Building with version: ${{ env.VERSION }}"
+          echo "Full tag: ${{ env.FULL_TAG }}"
+
+  build-dashboard:
+    name: Build and Push Dashboard
+    runs-on: ubuntu-latest
+    needs: extract-version
+    steps:
+      - name: Build and push dashboard
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agriNode-dashboard
+          file: ./agriNode-dashboard/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ env.FULL_TAG }}
+          build-args: |
+            VITE_API_URL=/api
+
+  build-gateway:
+    name: Build and Push Gateway
+    runs-on: ubuntu-latest
+    needs: extract-version
+    steps:
+      - name: Build and push gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./agriNode-gateway
+          file: ./agriNode-gateway/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ env.FULL_TAG }}
+
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [build-dashboard, build-gateway]
+    steps:
+      - name: Summary
+        run: |
+          echo "Successfully built and pushed the following images:"
+          echo "- ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:latest (${{ env.FULL_TAG }})"
+          echo "- ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:latest (${{ env.FULL_TAG }})"
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: summary
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ env.FULL_TAG }}
+          tag_name: ${{ env.FULL_TAG }}
+          body: |
+            ## AgriNode ${{ env.FULL_TAG }}
+
+            Release Notes:
+            
+            Docker Images für diese Version:
+            
+            ### Dashboard (Frontend)
+            - Docker Hub: [${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ env.FULL_TAG }}](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard/tags?name=${{ env.FULL_TAG }})
+            - `docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ env.FULL_TAG }}`
+            
+            ### Gateway (Backend)
+            - Docker Hub: [${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ env.FULL_TAG }}](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway/tags?name=${{ env.FULL_TAG }})
+            - `docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ env.FULL_TAG }}` 
+          generate_release_notes: true
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
