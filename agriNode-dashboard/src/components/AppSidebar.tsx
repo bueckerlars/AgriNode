@@ -86,7 +86,9 @@ export function AppSidebar() {
               </SidebarMenuItem>
               
               <SidebarMenuItem>
-                <SidebarMenuButton>
+                <SidebarMenuButton
+                  onClick={() => navigate("/settings")}
+                >
                   <Settings />
                   <span>Einstellungen</span>
                 </SidebarMenuButton>

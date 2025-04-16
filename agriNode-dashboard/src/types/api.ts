@@ -1,4 +1,3 @@
-
 // API-Typen basierend auf der OpenAPI-Spezifikation
 
 export interface ApiResponse<T> {
@@ -38,6 +37,14 @@ export interface SensorData {
   soil_temperature?: number;
   brightness?: number;
   battery_level: number;
+}
+
+export interface ApiKey {
+  api_key_id: string;
+  user_id: string;
+  name: string;
+  key: string;
+  created_at: string;
 }
 
 // Auth-Request-Typen

@@ -8,6 +8,7 @@ import AuthRoutes from './routes/AuthRoutes';
 import sensorRoutes from './routes/SensorRoutes';
 import SensorDataRoutes from './routes/SensorDataRoutes';
 import cookieParser from 'cookie-parser';
+import apiKeyRoutes from './routes/ApiKeyRoutes';
 
 dotenv.config();
 
@@ -20,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); 
 
 app.use(cors({
-  origin: "*", // Allow all origins
+  origin: process.env.DASHBOARD_URL || "*", // Allow the dashboard URL or all origins
   credentials: true, // Required for cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -30,6 +31,7 @@ app.use(cors({
 app.use("/api/auth/" , AuthRoutes);
 app.use('/api/sensors', sensorRoutes);
 app.use('/api/sensor-data', SensorDataRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
 
 
 // Swagger route

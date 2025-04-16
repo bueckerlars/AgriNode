@@ -2,7 +2,7 @@ import { FindOptions, WhereOptions } from 'sequelize';
 import databaseService from '../services/DatabaseService';
 import logger from '../config/logger';
 import initModels from '../models';
-import { User, Sensor, SensorData } from '../types';
+import { User, Sensor, SensorData, ApiKey } from '../types';
 
 // Initialize models
 const models = initModels(databaseService.getSequelize());
@@ -200,6 +200,23 @@ export class DatabaseController {
 
   public async deleteSensorData(where: WhereOptions): Promise<number> {
     return this.delete('SensorData', where);
+  }
+
+  // ApiKey model methods
+  public async createApiKey(data: Partial<ApiKey>): Promise<ApiKey | null> {
+    return this.create<ApiKey>('ApiKey', data);
+  }
+
+  public async findApiKeysByUser(userId: string): Promise<ApiKey[]> {
+    return this.findAll<ApiKey>('ApiKey', { where: { user_id: userId } });
+  }
+
+  public async findApiKeyById(id: string): Promise<ApiKey | null> {
+    return this.findById<ApiKey>('ApiKey', id);
+  }
+
+  public async deleteApiKey(where: WhereOptions): Promise<number> {
+    return this.delete('ApiKey', where);
   }
 }
 
