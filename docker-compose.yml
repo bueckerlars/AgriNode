@@ -16,6 +16,7 @@ services:
       - DATABASE_USER=postgres
       - DATABASE_PASSWORD=postgres
       - DATABASE_NAME=agri_db
+      - NODE_ENV=production
     restart: unless-stopped
 
   dashboard:
