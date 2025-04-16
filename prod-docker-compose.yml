@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  gateway:
+    image: larsbuecker/agrinode-gateway:latest
+    ports:
+      - "5066:5066"
+    depends_on:
+      - db
+    environment:
+      - PORT=5066
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=agri_db
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  dashboard:
+    image: larsbuecker/agrinode-dashboard:latest
+    ports:
+      - "3090:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agri_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
