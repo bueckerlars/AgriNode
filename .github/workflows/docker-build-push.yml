@@ -36,31 +36,25 @@ jobs:
     name: Extract Version Information
     runs-on: ubuntu-latest
     needs: login-docker
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Extract version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-
-      - name: Extract full tag name
-        id: get_full_tag
         run: |
-          if [[ "${GITHUB_REF}" =~ refs/tags/v(.+) ]]; then
-            echo "FULL_TAG=${BASH_REMATCH[1]}" >> $GITHUB_ENV
-          else
-            echo "Error: Tag does not match expected format 'v*'" >&2
-            exit 1
-          fi
-
-      - name: Display version information
-        run: |
-          echo "Building with version: ${{ env.VERSION }}"
-          echo "Full tag: ${{ env.FULL_TAG }}"
+          # Entferne das 'v' vom Tag und extrahiere die Version
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
 
   build-dashboard:
     name: Build and Push Dashboard
     runs-on: ubuntu-latest
     needs: extract-version
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Build and push dashboard
         uses: docker/build-push-action@v5
         with:
@@ -69,7 +63,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:latest
-            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ env.FULL_TAG }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ needs.extract-version.outputs.version }}
           build-args: |
             VITE_API_URL=/api
 
@@ -78,6 +72,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: extract-version
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Build and push gateway
         uses: docker/build-push-action@v5
         with:
@@ -86,43 +83,42 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:latest
-            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ env.FULL_TAG }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ needs.extract-version.outputs.version }}
 
   summary:
     name: Summary
     runs-on: ubuntu-latest
-    needs: [build-dashboard, build-gateway]
+    needs: [build-dashboard, build-gateway, extract-version]
     steps:
       - name: Summary
         run: |
           echo "Successfully built and pushed the following images:"
-          echo "- ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:latest (${{ env.FULL_TAG }})"
-          echo "- ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:latest (${{ env.FULL_TAG }})"
+          echo "- ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:latest (${{ needs.extract-version.outputs.version }})"
+          echo "- ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:latest (${{ needs.extract-version.outputs.version }})"
 
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: summary
+    needs: [summary, extract-version]
     steps:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ env.FULL_TAG }}
-          tag_name: ${{ env.FULL_TAG }}
+          name: Release ${{ needs.extract-version.outputs.version }}
           body: |
-            ## AgriNode ${{ env.FULL_TAG }}
+            ## AgriNode ${{ needs.extract-version.outputs.version }}
 
             Release Notes:
             
             Docker Images für diese Version:
             
             ### Dashboard (Frontend)
-            - Docker Hub: [${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ env.FULL_TAG }}](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard/tags?name=${{ env.FULL_TAG }})
-            - `docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ env.FULL_TAG }}`
+            - Docker Hub: [${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ needs.extract-version.outputs.version }}](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard/tags?name=${{ needs.extract-version.outputs.version }})
+            - `docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-dashboard:${{ needs.extract-version.outputs.version }}`
             
             ### Gateway (Backend)
-            - Docker Hub: [${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ env.FULL_TAG }}](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway/tags?name=${{ env.FULL_TAG }})
-            - `docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ env.FULL_TAG }}` 
+            - Docker Hub: [${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ needs.extract-version.outputs.version }}](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway/tags?name=${{ needs.extract-version.outputs.version }})
+            - `docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/agrinode-gateway:${{ needs.extract-version.outputs.version }}` 
           generate_release_notes: true
           draft: true
           prerelease: false
