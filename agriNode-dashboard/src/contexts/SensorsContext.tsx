@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Sensor, RegisterSensorRequest, UpdateSensorRequest } from '@/types/api';
 import sensorApi from '@/api/sensorApi';
@@ -38,10 +37,12 @@ export const SensorsProvider: React.FC<SensorsProviderProps> = ({ children }) =>
 
   const fetchSensors = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       setError(null);
+      // Clear the sensors state before fetching new data to avoid duplicates
+      setSensors([]);
       const data = await sensorApi.getAllSensors();
       setSensors(data);
     } catch (error) {
