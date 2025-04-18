@@ -11,6 +11,12 @@ class UserController {
    */
   async getAllUsers(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
       logger.info(`Admin: Fetching all users`);
       const users = await databaseController.findAllUsers();
       
@@ -39,6 +45,12 @@ class UserController {
    */
   async getUserById(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+      
       const userId = req.params.userId;
       logger.info(`Admin: Fetching user with ID ${userId}`);
       
@@ -63,6 +75,12 @@ class UserController {
    */
   async updateUser(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+      
       const userId = req.params.userId;
       const { username, email, role, active } = req.body;
       logger.info(`Admin: Updating user with ID ${userId}`);
@@ -126,6 +144,12 @@ class UserController {
    */
   async deleteUser(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+      
       const userId = req.params.userId;
       logger.info(`Admin: Deleting user with ID ${userId}`);
       
@@ -158,6 +182,12 @@ class UserController {
    */
   async toggleRegistrationStatus(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+      
       const { enabled } = req.body;
       
       if (typeof enabled !== 'boolean') {

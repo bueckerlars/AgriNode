@@ -9,6 +9,15 @@ class SensorController {
      */
     async registerSensor(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id; // From JWT token via auth middleware
             const sensorData = req.body;
             
@@ -56,6 +65,15 @@ class SensorController {
      */
     async unregisterSensor(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id;
             const { sensorId } = req.params;
             
@@ -105,6 +123,15 @@ class SensorController {
      */
     async getSensorInfo(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id;
             const { sensorId } = req.params;
             
@@ -157,6 +184,15 @@ class SensorController {
      */
     async updateSensorInfo(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id;
             const { sensorId } = req.params;
             const updateData = req.body;
@@ -218,6 +254,15 @@ class SensorController {
      */
     async getUserSensors(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id;
             
             const sensors = await sensorService.getAllSensorsByUserId(userId);
@@ -242,6 +287,15 @@ class SensorController {
      */
     async updateSensorStatus(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id;
             const { sensorId } = req.params;
             const { batteryLevel } = req.body;

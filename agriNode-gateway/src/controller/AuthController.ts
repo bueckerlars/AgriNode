@@ -166,12 +166,18 @@ class AuthController {
 
   async changePassword(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.id;
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
+      const userId = req.user.id;
       const { oldPassword, newPassword } = req.body;
 
       // Validate input
-      if (!userId || !oldPassword || !newPassword) {
-        res.status(400).json({ message: 'User ID, old password, and new password are required' });
+      if (!oldPassword || !newPassword) {
+        res.status(400).json({ message: 'Old password and new password are required' });
         return;
       }
 

@@ -9,6 +9,12 @@ class ApiKeyController {
    */
   async list(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
       const userId = req.user.id;
       const keys = await databaseController.findApiKeysByUser(userId);
       res.status(200).json({ data: keys });
@@ -23,6 +29,12 @@ class ApiKeyController {
    */
   async create(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
       const userId = req.user.id;
       const { name } = req.body;
       if (!name) {
@@ -52,6 +64,12 @@ class ApiKeyController {
    */
   async remove(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+      
       const userId = req.user.id;
       const { id } = req.params;
       // ensure belongs to user

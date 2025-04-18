@@ -33,6 +33,12 @@ class SensorDataController {
    */
   async getAllSensorData(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+      
       const userId = req.user.id;
       const isAdmin = req.user.role === 'admin';
       
@@ -71,18 +77,18 @@ class SensorDataController {
    */
   async getSensorData(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ success: false, message: 'Authentication required' });
+        return;
+      }
+      
       // Statt req.body.user_id verwende req.user.id aus dem Auth-Token
       const userId = req.user.id;
       const { sensorId } = req.params;
       
       if (!sensorId) {
         res.status(400).json({ success: false, message: 'Sensor ID is required' });
-        return;
-      }
-      
-      // Benutzer sollte immer vorhanden sein, da wir die Auth-Middleware verwenden
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Authentication required' });
         return;
       }
       
@@ -119,6 +125,12 @@ class SensorDataController {
    */
   async getSensorDataByTimeRange(req: Request, res: Response): Promise<void> {
     try {
+      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+      if (!req.user) {
+        res.status(401).json({ success: false, message: 'Authentication required' });
+        return;
+      }
+      
       // Statt req.body.user_id verwende req.user.id aus dem Auth-Token
       const userId = req.user.id;
       const { sensorId } = req.params;
@@ -131,12 +143,6 @@ class SensorDataController {
       
       if (!startTime || !endTime) {
         res.status(400).json({ success: false, message: 'Start time and end time are required' });
-        return;
-      }
-      
-      // Benutzer sollte immer vorhanden sein, da wir die Auth-Middleware verwenden
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Authentication required' });
         return;
       }
       

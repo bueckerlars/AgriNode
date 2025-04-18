@@ -8,6 +8,15 @@ class SensorSharingController {
      */
     async shareSensor(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const ownerId = req.user.id; // Von JWT-Token via Auth-Middleware
             const { sensorId } = req.params;
             const { userId } = req.body; // ID des Benutzers, mit dem geteilt werden soll
@@ -59,6 +68,15 @@ class SensorSharingController {
      */
     async unshareSensor(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const ownerId = req.user.id;
             const { sensorId, sharedUserId } = req.params;
             
@@ -108,6 +126,15 @@ class SensorSharingController {
      */
     async removeAllSharings(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const ownerId = req.user.id;
             const { sensorId } = req.params;
             
@@ -157,6 +184,15 @@ class SensorSharingController {
      */
     async getSharedSensors(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const userId = req.user.id;
             
             const sensors = await sensorSharingService.getSensorsSharedWithUser(userId);
@@ -181,6 +217,15 @@ class SensorSharingController {
      */
     async getSharedUsers(req: Request, res: Response): Promise<void> {
         try {
+            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
             const ownerId = req.user.id;
             const { sensorId } = req.params;
             
