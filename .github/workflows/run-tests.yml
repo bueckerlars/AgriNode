@@ -1,0 +1,46 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+      - 'release/**'
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'release/**'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      # Run tests for the gateway service
+      - name: Install dependencies for gateway
+        run: npm ci
+        working-directory: ./agriNode-gateway
+        
+      - name: Run gateway tests
+        run: npm test
+        working-directory: ./agriNode-gateway
+        
+      # Uncomment if agriNode-dashboard has tests in the future
+      # - name: Install dependencies for dashboard
+      #   run: npm ci
+      #   working-directory: ./agriNode-dashboard
+      #   
+      # - name: Run dashboard tests
+      #   run: npm test
+      #   working-directory: ./agriNode-dashboard
