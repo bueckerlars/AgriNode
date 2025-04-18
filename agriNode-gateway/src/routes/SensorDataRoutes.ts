@@ -145,7 +145,7 @@ router.get('/:id', SensorDataController.getSensorDataById);
  *       500:
  *         description: Server error
  */
-router.get('/sensor/:sensorId', SensorDataController.getSensorDataBySensorId);
+router.get('/sensor/:sensorId', SensorDataController.getSensorDataById);
 
 /**
  * @swagger

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import sensorService from '../services/SensorService';
 import logger from '../config/logger';
+import sensorSharingService from '../services/SensorSharingService';
 
 class SensorController {
     /**
@@ -115,7 +116,26 @@ class SensorController {
                 return;
             }
             
+            // Check access (owner or shared)
+            const { hasAccess } = await sensorSharingService.checkSensorAccess(sensorId, userId);
+            
+            if (!hasAccess) {
+                res.status(403).json({
+                    success: false,
+                    message: 'You do not have access to this sensor'
+                });
+                return;
+            }
+            
             const sensor = await sensorService.getSensorById(sensorId, userId);
+            
+            if (!sensor) {
+                res.status(404).json({ 
+                    success: false, 
+                    message: 'Sensor not found' 
+                });
+                return;
+            }
             
             res.status(200).json({
                 success: true,
@@ -123,22 +143,6 @@ class SensorController {
             });
         } catch (error: any) {
             logger.error(`Error in SensorController.getSensorInfo: ${error.message}`);
-            
-            if (error.message.includes('not found')) {
-                res.status(404).json({ 
-                    success: false, 
-                    message: error.message 
-                });
-                return;
-            }
-            
-            if (error.message.includes('permission')) {
-                res.status(403).json({ 
-                    success: false, 
-                    message: error.message 
-                });
-                return;
-            }
             
             res.status(500).json({ 
                 success: false, 
@@ -210,12 +214,13 @@ class SensorController {
     
     /**
      * Get all sensors for the authenticated user
+     * (both owned and shared)
      */
     async getUserSensors(req: Request, res: Response): Promise<void> {
         try {
             const userId = req.user.id;
             
-            const sensors = await sensorService.getSensorsByUserId(userId);
+            const sensors = await sensorService.getAllSensorsByUserId(userId);
             
             res.status(200).json({
                 success: true,

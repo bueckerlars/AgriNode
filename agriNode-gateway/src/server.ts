@@ -10,6 +10,7 @@ import SensorDataRoutes from './routes/SensorDataRoutes';
 import cookieParser from 'cookie-parser';
 import apiKeyRoutes from './routes/ApiKeyRoutes';
 import userRoutes from './routes/UserRoutes';
+import sensorSharingRoutes from './routes/SensorSharingRoutes';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use('/api/sensors', sensorRoutes);
 app.use('/api/sensor-data', SensorDataRoutes);
 app.use('/api/api-keys', apiKeyRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/sharing', sensorSharingRoutes);
 
 // Swagger route
 

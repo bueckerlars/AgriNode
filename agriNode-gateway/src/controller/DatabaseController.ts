@@ -2,7 +2,7 @@ import { FindOptions, WhereOptions } from 'sequelize';
 import databaseService from '../services/DatabaseService';
 import logger from '../config/logger';
 import initModels from '../models';
-import { User, Sensor, SensorData, ApiKey } from '../types';
+import { User, Sensor, SensorData, ApiKey, SensorSharing } from '../types';
 
 // Initialize models
 const models = initModels(databaseService.getSequelize());
@@ -89,6 +89,34 @@ export class DatabaseController {
       logger.error(`Error in DatabaseController.delete: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
+  }
+
+  /**
+   * Get a model directly from the database service
+   * @param modelName Name of the model to retrieve
+   * @returns The requested Sequelize model or null if not found
+   */
+  public getModelFromService(modelName: string): any {
+    try {
+      const model = databaseService.getModel(modelName);
+      if (!model) {
+        logger.warn(`Model ${modelName} not found in database service`);
+        return null;
+      }
+      return model;
+    } catch (error) {
+      logger.error(`Error in DatabaseController.getModelFromService: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a model from the local models cache
+   * @param modelName Name of the model to retrieve
+   * @returns The requested Sequelize model
+   */
+  public getModel(modelName: keyof typeof this.models): any {
+    return this.models[modelName];
   }
 
   // Type-specific methods for better developer experience
@@ -217,6 +245,44 @@ export class DatabaseController {
 
   public async deleteApiKey(where: WhereOptions): Promise<number> {
     return this.delete('ApiKey', where);
+  }
+
+  // SensorSharing model methods
+  public async createSensorSharing(data: Partial<SensorSharing>): Promise<SensorSharing | null> {
+    return this.create<SensorSharing>('SensorSharing', data);
+  }
+
+  public async findAllSensorSharings(options: FindOptions = {}): Promise<SensorSharing[]> {
+    return this.findAll<SensorSharing>('SensorSharing', options);
+  }
+
+  public async findSensorSharingById(id: string): Promise<SensorSharing | null> {
+    return this.findById<SensorSharing>('SensorSharing', id);
+  }
+
+  public async findOneSensorSharing(options: FindOptions): Promise<SensorSharing | null> {
+    try {
+      return await this.findOne<SensorSharing>('SensorSharing', options);
+    } catch (error) {
+      logger.error(`Error in DatabaseController.findOneSensorSharing: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  public async findSensorSharingsByOwner(userId: string): Promise<SensorSharing[]> {
+    return this.findAll<SensorSharing>('SensorSharing', { where: { owner_id: userId } });
+  }
+
+  public async findSensorSharingsBySharedWith(userId: string): Promise<SensorSharing[]> {
+    return this.findAll<SensorSharing>('SensorSharing', { where: { shared_with_id: userId } });
+  }
+
+  public async findSensorSharingsBySensor(sensorId: string): Promise<SensorSharing[]> {
+    return this.findAll<SensorSharing>('SensorSharing', { where: { sensor_id: sensorId } });
+  }
+
+  public async deleteSensorSharing(where: WhereOptions): Promise<number> {
+    return this.delete('SensorSharing', where);
   }
 }
 

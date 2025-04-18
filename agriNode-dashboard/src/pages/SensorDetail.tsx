@@ -13,7 +13,8 @@ import {
   BatteryLow,
   BatteryMedium,
   BatteryFull,
-  Calendar
+  Calendar,
+  Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SensorDataChart from "@/components/SensorDataChart";
 import SensorRegistrationForm from "@/components/SensorRegistrationForm";
+import SensorSharingDialog from "@/components/SensorSharingDialog";
 import { SensorReadingsByType, SensorUpdatePayload } from "@/types/sensor";
 import { Sensor, SensorData as ApiSensorData } from "@/types/api";
 import { toast } from "sonner";
@@ -37,6 +39,8 @@ import {
 import AppSidebar from "@/components/AppSidebar";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useSensorData } from "@/contexts/SensorDataContext";
+import { useSensorSharing } from "@/contexts/SensorSharingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import sensorApi from "@/api/sensorApi";
 
 // Zeitraumoptionen für den Auswahlmenüs
@@ -50,6 +54,7 @@ const TIME_RANGES = [
 const SensorDetail = () => {
   const { sensorId } = useParams<{ sensorId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const { getSensorById, updateSensor, deleteSensor, fetchSensors, sensors, loading: sensorsLoading } = useSensors();
   const { getSensorDataBySensorId, getSensorDataByTimeRange } = useSensorData();
@@ -60,6 +65,7 @@ const SensorDetail = () => {
   const [dataLoading, setDataLoading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sharingDialogOpen, setSharingDialogOpen] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('24h');
   
   // Add controller reference for fetch cancellation
@@ -421,23 +427,36 @@ const SensorDetail = () => {
             </div>
             
             <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setEditDialogOpen(true)}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Bearbeiten
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="text-red-600 hover:text-red-700"
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Löschen
-              </Button>
+              {/* Nur Sensor-Eigentümer können teilen oder bearbeiten */}
+              {sensor.user_id === (user?.user_id || '') && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSharingDialogOpen(true)}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Teilen
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setEditDialogOpen(true)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Löschen
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           
@@ -658,6 +677,13 @@ const SensorDetail = () => {
           setSensor(updatedSensor);
           setEditDialogOpen(false);
         }}
+      />
+      
+      {/* Neuer Dialog für das Sensor-Sharing */}
+      <SensorSharingDialog
+        isOpen={sharingDialogOpen}
+        onClose={() => setSharingDialogOpen(false)}
+        sensor={sensor}
       />
       
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import SensorCard from "./SensorCard";
+import SensorSharingDialog from "./SensorSharingDialog";
 import { Sensor } from "@/types/sensor";
 
 interface SensorCardListProps {
@@ -14,6 +15,8 @@ interface SensorCardListProps {
  */
 const SensorCardList = ({ sensors, onEdit, onDelete }: SensorCardListProps) => {
   const [visibleSensors, setVisibleSensors] = useState<Sensor[]>([]);
+  const [sharingDialogOpen, setSharingDialogOpen] = useState(false);
+  const [selectedSensor, setSelectedSensor] = useState<Sensor | null>(null);
   
   useEffect(() => {
     // Reset when the sensors list changes
@@ -33,24 +36,41 @@ const SensorCardList = ({ sensors, onEdit, onDelete }: SensorCardListProps) => {
     });
   }, [sensors]);
   
+  const handleShare = (sensor: Sensor) => {
+    setSelectedSensor(sensor);
+    setSharingDialogOpen(true);
+  };
+  
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {visibleSensors.map((sensor) => (
-        <SensorCard
-          key={sensor.sensor_id}
-          sensor={sensor}
-          onEdit={onEdit}
-          onDelete={onDelete}
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {visibleSensors.map((sensor) => (
+          <SensorCard
+            key={sensor.sensor_id}
+            sensor={sensor}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onShare={handleShare}
+          />
+        ))}
+        {sensors.length > visibleSensors.length && (
+          <div className="col-span-full text-center py-3">
+            <p className="text-sm text-muted-foreground animate-pulse">
+              Lade weitere Sensoren...
+            </p>
+          </div>
+        )}
+      </div>
+      
+      {/* SensorSharingDialog */}
+      {selectedSensor && (
+        <SensorSharingDialog
+          isOpen={sharingDialogOpen}
+          onClose={() => setSharingDialogOpen(false)}
+          sensor={selectedSensor}
         />
-      ))}
-      {sensors.length > visibleSensors.length && (
-        <div className="col-span-full text-center py-3">
-          <p className="text-sm text-muted-foreground animate-pulse">
-            Lade weitere Sensoren...
-          </p>
-        </div>
       )}
-    </div>
+    </>
   );
 };
 

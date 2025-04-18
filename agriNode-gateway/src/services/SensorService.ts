@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Sensor } from '../types/Sensor';
 import databaseController from '../controller/DatabaseController';
 import logger from '../config/logger';
+import sensorSharingService from './SensorSharingService';
 
 class SensorService {
     /**
@@ -80,25 +81,29 @@ class SensorService {
     }
     
     /**
-     * Get sensor information by ID
+     * Get sensor details by ID
+     * Checks if user is allowed to access this sensor (owner or shared)
      */
-    async getSensorById(sensorId: string, userId: string): Promise<Sensor> {
+    async getSensorById(sensorId: string, userId: string): Promise<Sensor | null> {
         try {
-            logger.info(`Getting info for sensor ID: ${sensorId}`);
+            logger.info(`Getting sensor details for ID: ${sensorId}, user: ${userId}`);
+            
+            // Check user's access to this sensor
+            const { hasAccess } = await sensorSharingService.checkSensorAccess(sensorId, userId);
+            
+            if (!hasAccess) {
+                logger.warn(`User ${userId} does not have access to sensor ${sensorId}`);
+                return null;
+            }
             
             const sensor = await databaseController.findSensorById(sensorId);
             
             if (!sensor) {
                 logger.warn(`Sensor with ID ${sensorId} not found`);
-                throw new Error('Sensor not found');
+                return null;
             }
             
-            // Verify the user has access to this sensor
-            if (sensor.user_id !== userId) {
-                logger.warn(`Unauthorized attempt to access sensor ${sensorId} by user ${userId}`);
-                throw new Error('You do not have permission to access this sensor');
-            }
-            
+            logger.info(`Sensor details retrieved successfully for ${sensorId}`);
             return sensor;
         } catch (error) {
             logger.error(`Error in SensorService.getSensorById: ${error instanceof Error ? error.message : String(error)}`);
@@ -107,65 +112,62 @@ class SensorService {
     }
     
     /**
-     * Get all sensors for a specific user
+     * Get all sensors for a specific user (owned and shared)
      */
-    async getSensorsByUserId(userId: string): Promise<Sensor[]> {
+    async getAllSensorsByUserId(userId: string): Promise<Sensor[]> {
         try {
             logger.info(`Getting all sensors for user: ${userId}`);
             
-            const sensors = await databaseController.findAllSensors({
+            // Get owned sensors
+            const ownedSensors = await databaseController.findAllSensors({
                 where: { user_id: userId }
             });
             
-            logger.info(`Found ${sensors.length} sensors for user ${userId}`);
-            return sensors;
+            // Get shared sensors
+            const sharedSensors = await sensorSharingService.getSensorsSharedWithUser(userId);
+            
+            // Combine the results
+            const allSensors = [...ownedSensors, ...sharedSensors];
+            
+            logger.info(`Found ${allSensors.length} sensors in total for user ${userId} (${ownedSensors.length} owned, ${sharedSensors.length} shared)`);
+            return allSensors;
         } catch (error) {
-            logger.error(`Error in SensorService.getSensorsByUserId: ${error instanceof Error ? error.message : String(error)}`);
+            logger.error(`Error in SensorService.getAllSensorsByUserId: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
     
     /**
      * Update sensor information
+     * Only the sensor owner can update sensor information
      */
-    async updateSensor(sensorId: string, userId: string, updateData: Partial<Sensor>): Promise<Sensor> {
+    async updateSensor(sensorId: string, userId: string, updateData: Partial<Sensor>): Promise<Sensor | null> {
         try {
-            logger.info(`Updating sensor ID: ${sensorId}`);
+            logger.info(`Updating sensor ${sensorId} for user ${userId}`);
             
-            // Verify sensor exists and belongs to user
-            const sensor = await databaseController.findSensorById(sensorId);
+            // Check if sensor exists and user is owner
+            const { hasAccess, isOwner } = await sensorSharingService.checkSensorAccess(sensorId, userId);
             
-            if (!sensor) {
-                logger.warn(`Sensor with ID ${sensorId} not found`);
-                throw new Error('Sensor not found');
-            }
-            
-            if (sensor.user_id !== userId) {
-                logger.warn(`Unauthorized attempt to update sensor ${sensorId} by user ${userId}`);
+            if (!hasAccess || !isOwner) {
+                logger.warn(`User ${userId} does not have permission to update sensor ${sensorId}`);
                 throw new Error('You do not have permission to update this sensor');
             }
             
-            // Remove fields that shouldn't be updated
-            const sanitizedUpdate = { ...updateData };
-            delete sanitizedUpdate.sensor_id;
-            delete sanitizedUpdate.user_id;
-            delete sanitizedUpdate.unique_device_id;
-            delete sanitizedUpdate.registered_at;
-            
-            // Add updated timestamp
-            sanitizedUpdate.updated_at = new Date();
+            // Don't allow changing the owner or sensor ID
+            delete updateData.sensor_id;
+            delete updateData.user_id;
             
             // Update the sensor
-            await databaseController.updateSensor(
-                sanitizedUpdate, 
-                { where: { sensor_id: sensorId } }
-            );
+            await databaseController.updateSensor(updateData, {
+                where: { sensor_id: sensorId }
+            });
             
-            // Get the updated sensor
+            // Get updated sensor
             const updatedSensor = await databaseController.findSensorById(sensorId);
             
             if (!updatedSensor) {
-                throw new Error('Failed to retrieve updated sensor');
+                logger.error(`Failed to retrieve updated sensor ${sensorId}`);
+                throw new Error('Error updating sensor');
             }
             
             logger.info(`Sensor ${sensorId} updated successfully`);

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import SensorDataService from '../services/SensorDataService';
 import logger from '../config/logger';
 import { SensorData } from '../types';
+import sensorSharingService from '../services/SensorSharingService';
 
 class SensorDataController {
   /**
@@ -66,47 +67,102 @@ class SensorDataController {
   }
 
   /**
-   * Get data for a specific sensor
+   * Get sensor data for a specific sensor
    */
-  async getSensorDataBySensorId(req: Request, res: Response): Promise<void> {
+  async getSensorData(req: Request, res: Response): Promise<void> {
     try {
-      const sensorId = req.params.sensorId;
+      const userId = req.user.id;
+      const { sensorId } = req.params;
+      
+      if (!sensorId) {
+        res.status(400).json({ success: false, message: 'Sensor ID is required' });
+        return;
+      }
+      
+      // Check if user has access to this sensor (owner or shared)
+      const { hasAccess } = await sensorSharingService.checkSensorAccess(sensorId, userId);
+      
+      if (!hasAccess) {
+        res.status(403).json({ 
+          success: false, 
+          message: 'You do not have access to this sensor data' 
+        });
+        return;
+      }
+      
       const sensorData = await SensorDataService.getSensorDataBySensorId(sensorId);
       
-      res.status(200).json(sensorData);
-    } catch (error) {
-      logger.error(`Error in getSensorDataBySensorId: ${error instanceof Error ? error.message : String(error)}`);
-      res.status(500).json({ message: 'Failed to fetch sensor data', error: error instanceof Error ? error.message : String(error) });
+      res.status(200).json({
+        success: true,
+        data: sensorData
+      });
+    } catch (error: any) {
+      logger.error(`Error in SensorDataController.getSensorData: ${error.message}`);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve sensor data',
+        error: error.message
+      });
     }
   }
 
   /**
-   * Get sensor data by time range
+   * Get sensor data within a specific time range
    */
   async getSensorDataByTimeRange(req: Request, res: Response): Promise<void> {
     try {
-      const sensorId = req.params.sensorId;
-      const { startTime, endTime } = req.query;
+      const userId = req.user.id;
+      const { sensorId } = req.params;
+      const { startTime, endTime } = req.query as { startTime: string, endTime: string };
+      
+      if (!sensorId) {
+        res.status(400).json({ success: false, message: 'Sensor ID is required' });
+        return;
+      }
       
       if (!startTime || !endTime) {
-        res.status(400).json({ message: 'Start time and end time are required' });
+        res.status(400).json({ success: false, message: 'Start time and end time are required' });
         return;
       }
       
-      const startDate = new Date(startTime as string);
-      const endDate = new Date(endTime as string);
+      // Check if user has access to this sensor (owner or shared)
+      const { hasAccess } = await sensorSharingService.checkSensorAccess(sensorId, userId);
       
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        res.status(400).json({ message: 'Invalid date format' });
+      if (!hasAccess) {
+        res.status(403).json({ 
+          success: false, 
+          message: 'You do not have access to this sensor data' 
+        });
         return;
       }
       
-      const sensorData = await SensorDataService.getSensorDataByTimeRange(sensorId, startDate, endDate);
+      const start = new Date(startTime);
+      const end = new Date(endTime);
       
-      res.status(200).json(sensorData);
-    } catch (error) {
-      logger.error(`Error in getSensorDataByTimeRange: ${error instanceof Error ? error.message : String(error)}`);
-      res.status(500).json({ message: 'Failed to fetch sensor data', error: error instanceof Error ? error.message : String(error) });
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        res.status(400).json({ success: false, message: 'Invalid date format' });
+        return;
+      }
+      
+      const sensorData = await SensorDataService.getSensorDataByTimeRange(
+        sensorId,
+        start,
+        end
+      );
+      
+      res.status(200).json({
+        success: true,
+        data: sensorData
+      });
+    } catch (error: any) {
+      logger.error(`Error in SensorDataController.getSensorDataByTimeRange: ${error.message}`);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve sensor data',
+        error: error.message
+      });
     }
   }
 

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull } from "lucide-react";
+import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull, Share2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Sensor, SensorReadingsByType, SensorDataPoint } from "@/types/sensor";
@@ -9,15 +9,18 @@ import { SensorData as ApiSensorData } from "@/types/api";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { useSensorData } from "@/contexts/SensorDataContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SensorCardProps {
   sensor: Sensor;
   onEdit: (sensor: Sensor) => void;
   onDelete: (sensorId: string) => void;
+  onShare?: (sensor: Sensor) => void; // Neue Prop für die Teilen-Funktion
 }
 
-const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
+const SensorCard = ({ sensor, onEdit, onDelete, onShare }: SensorCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [sensorData, setSensorData] = useState<SensorReadingsByType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +30,9 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
   
   // Get sensor data context
   const { getSensorDataBySensorId } = useSensorData();
+  
+  // Überprüfen, ob der aktuelle Benutzer der Besitzer des Sensors ist
+  const isOwner = user?.user_id === sensor.user_id;
   
   useEffect(() => {
     const fetchSensorData = async () => {
@@ -212,21 +218,39 @@ const SensorCard = ({ sensor, onEdit, onDelete }: SensorCardProps) => {
               }}>
                 Details anzeigen
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation(); // Verhindert, dass der Klick auf das Menüitem auch die Karte auslöst
-                onEdit(sensor);
-              }}>
-                Bearbeiten
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-600" 
-                onClick={(e) => {
-                  e.stopPropagation(); // Verhindert, dass der Klick auf das Menüitem auch die Karte auslöst
-                  onDelete(sensor.sensor_id);
-                }}
-              >
-                Löschen
-              </DropdownMenuItem>
+              
+              {/* Nur anzeigen, wenn der aktuelle Benutzer der Besitzer ist */}
+              {isOwner && (
+                <>
+                  {/* Neue Option zum Teilen des Sensors */}
+                  {onShare && (
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onShare(sensor);
+                    }}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Teilen
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(sensor);
+                  }}>
+                    Bearbeiten
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    className="text-red-600" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(sensor.sensor_id);
+                    }}
+                  >
+                    Löschen
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

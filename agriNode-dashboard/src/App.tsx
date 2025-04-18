@@ -9,6 +9,7 @@ import { SensorsProvider } from "@/contexts/SensorsContext";
 import { SensorDataProvider } from "@/contexts/SensorDataContext";
 import { ApiKeysProvider } from "@/contexts/ApiKeysContext";
 import { UsersProvider } from "@/contexts/UsersContext";
+import { SensorSharingProvider } from "@/contexts/SensorSharingContext";
 
 // Importiere den API-Client, damit die Axios-Interceptoren initialisiert werden
 import '@/api/apiClient';
@@ -26,11 +27,13 @@ const App = () => (
           <SensorsProvider>
             <SensorDataProvider>
               <ApiKeysProvider>
-                <SidebarProvider>
-                  <Toaster />
-                  <Sonner />
-                  <RouterProvider router={router} />
-                </SidebarProvider>
+                <SensorSharingProvider>
+                  <SidebarProvider>
+                    <Toaster />
+                    <Sonner />
+                    <RouterProvider router={router} />
+                  </SidebarProvider>
+                </SensorSharingProvider>
               </ApiKeysProvider>
             </SensorDataProvider>
           </SensorsProvider>
