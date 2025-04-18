@@ -1,6 +1,6 @@
 # AgriNode: Multifunctional Plant Pot Sensor with WEMOS D1 Mini
 
-[![Status](https://img.shields.io/badge/Status-Development-yellow)](https://github.com/YOUR_GITHUB_USERNAME/AgriNode)
+[![Status](https://img.shields.io/badge/Status-Development-yellow)](https://github.com/bueckerlars/AgriNode)
 [![GitHub Issues](https://img.shields.io/github/issues/bueckerlars/AgriNode)](https://github.com/bueckerlars/AgriNode/issues)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
