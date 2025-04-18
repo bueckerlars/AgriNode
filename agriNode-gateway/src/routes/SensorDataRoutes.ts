@@ -119,7 +119,7 @@ router.get('/:id', SensorDataController.getSensorDataById);
 /**
  * @swagger
  * /api/sensor-data/sensor/{sensorId}:
- *   get:
+ *   post:
  *     summary: Get all data for a specific sensor
  *     tags: [Sensor Data]
  *     security:
@@ -131,6 +131,18 @@ router.get('/:id', SensorDataController.getSensorDataById);
  *           type: string
  *         required: true
  *         description: Sensor ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *             properties:
+ *               user_id:
+ *                 type: string
+ *                 description: ID of the user requesting the data
  *     responses:
  *       200:
  *         description: List of sensor data records for the specified sensor
@@ -142,15 +154,17 @@ router.get('/:id', SensorDataController.getSensorDataById);
  *                 $ref: '#/components/schemas/SensorData'
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User doesn't have access to the sensor
  *       500:
  *         description: Server error
  */
-router.get('/sensor/:sensorId', SensorDataController.getSensorDataById);
+router.post('/sensor/:sensorId', SensorDataController.getSensorData);
 
 /**
  * @swagger
  * /api/sensor-data/sensor/{sensorId}/timerange:
- *   get:
+ *   post:
  *     summary: Get sensor data within a time range
  *     tags: [Sensor Data]
  *     security:
@@ -162,20 +176,28 @@ router.get('/sensor/:sensorId', SensorDataController.getSensorDataById);
  *           type: string
  *         required: true
  *         description: Sensor ID
- *       - in: query
- *         name: startTime
- *         schema:
- *           type: string
- *           format: date-time
- *         required: true
- *         description: Start time (ISO format)
- *       - in: query
- *         name: endTime
- *         schema:
- *           type: string
- *           format: date-time
- *         required: true
- *         description: End time (ISO format)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - startTime
+ *               - endTime
+ *             properties:
+ *               user_id:
+ *                 type: string
+ *                 description: ID of the user requesting the data
+ *               startTime:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Start time (ISO format)
+ *               endTime:
+ *                 type: string
+ *                 format: date-time
+ *                 description: End time (ISO format)
  *     responses:
  *       200:
  *         description: List of sensor data records within the specified time range
@@ -189,10 +211,12 @@ router.get('/sensor/:sensorId', SensorDataController.getSensorDataById);
  *         description: Bad request, invalid parameters
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User doesn't have access to the sensor
  *       500:
  *         description: Server error
  */
-router.get('/sensor/:sensorId/timerange', SensorDataController.getSensorDataByTimeRange);
+router.post('/sensor/:sensorId/timerange', SensorDataController.getSensorDataByTimeRange);
 
 /**
  * @swagger

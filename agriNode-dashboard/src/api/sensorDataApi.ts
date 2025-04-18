@@ -59,10 +59,12 @@ const sensorDataApi = {
 
   /**
    * Ruft alle Daten für einen bestimmten Sensor ab
+   * Geändert von GET zu POST mit user_id im Body
    */
-  getSensorDataBySensorId: async (sensorId: string, signal?: AbortSignal): Promise<SensorData[]> => {
-    const response = await apiClient.get<SensorData[]>(
+  getSensorDataBySensorId: async (sensorId: string, userId: string, signal?: AbortSignal): Promise<SensorData[]> => {
+    const response = await apiClient.post<SensorData[]>(
       `/sensor-data/sensor/${sensorId}`,
+      { user_id: userId },
       {
         signal // Pass the signal to axios
       }
@@ -82,20 +84,23 @@ const sensorDataApi = {
 
   /**
    * Ruft Sensordaten in einem bestimmten Zeitraum ab
+   * Geändert von GET zu POST mit user_id im Body
    */
   getSensorDataByTimeRange: async (
-    sensorId: string, 
+    sensorId: string,
+    userId: string,
     startTime: string, 
     endTime: string,
     signal?: AbortSignal
   ): Promise<SensorData[]> => {
-    const response = await apiClient.get<SensorData[]>(
+    const response = await apiClient.post<SensorData[]>(
       `/sensor-data/sensor/${sensorId}/timerange`,
       {
-        params: {
-          startTime,
-          endTime
-        },
+        user_id: userId,
+        startTime,
+        endTime
+      },
+      {
         signal // Pass the signal to axios
       }
     );

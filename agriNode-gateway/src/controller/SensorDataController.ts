@@ -71,11 +71,17 @@ class SensorDataController {
    */
   async getSensorData(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user.id;
+      // Change from req.user_id to req.body.user_id
+      const userId = req.body.user_id;
       const { sensorId } = req.params;
       
       if (!sensorId) {
         res.status(400).json({ success: false, message: 'Sensor ID is required' });
+        return;
+      }
+      
+      if (!userId) {
+        res.status(400).json({ success: false, message: 'User ID is required' });
         return;
       }
       
@@ -112,9 +118,10 @@ class SensorDataController {
    */
   async getSensorDataByTimeRange(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user.id;
+      // Change from req.user.id to req.body.user_id
+      const userId = req.body.user_id;
       const { sensorId } = req.params;
-      const { startTime, endTime } = req.query as { startTime: string, endTime: string };
+      const { startTime, endTime } = req.body;
       
       if (!sensorId) {
         res.status(400).json({ success: false, message: 'Sensor ID is required' });
@@ -123,6 +130,11 @@ class SensorDataController {
       
       if (!startTime || !endTime) {
         res.status(400).json({ success: false, message: 'Start time and end time are required' });
+        return;
+      }
+      
+      if (!userId) {
+        res.status(400).json({ success: false, message: 'User ID is required' });
         return;
       }
       

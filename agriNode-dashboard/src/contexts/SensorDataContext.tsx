@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { SensorData } from '@/types/api';
 import sensorDataApi from '@/api/sensorDataApi';
 import { toast } from 'sonner';
+import { useAuth } from './AuthContext';
 
 interface SensorDataContextType {
   loading: boolean;
@@ -29,12 +30,17 @@ interface SensorDataProviderProps {
 export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const getSensorDataBySensorId = async (sensorId: string, signal?: AbortSignal) => {
     try {
       setError(null);
       // Don't set global loading state here to match our pattern with getSensorDataByTimeRange
-      const data = await sensorDataApi.getSensorDataBySensorId(sensorId, signal);
+      if (!user || !user.user_id) {
+        throw new Error('Benutzer ist nicht eingeloggt');
+      }
+
+      const data = await sensorDataApi.getSensorDataBySensorId(sensorId, user.user_id, signal);
       return data;
     } catch (error) {
       // Only log and show errors if not caused by AbortController
@@ -51,7 +57,11 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
     try {
       setError(null);
       // We don't set global loading state here anymore since we manage it in the component
-      const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, startTime, endTime, signal);
+      if (!user || !user.user_id) {
+        throw new Error('Benutzer ist nicht eingeloggt');
+      }
+
+      const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, user.user_id, startTime, endTime, signal);
       return data;
     } catch (error) {
       // Only log and show errors if not caused by AbortController
