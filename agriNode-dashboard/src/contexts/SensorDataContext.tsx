@@ -40,7 +40,6 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
       }
 
       const data = await sensorDataApi.getSensorDataBySensorId(sensorId, signal);
-      console.log('Sensor data:', data);
       return data;
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
