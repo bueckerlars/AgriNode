@@ -9,7 +9,7 @@ class UserController {
   /**
    * Get all users (admin only)
    */
-  async getAllUsers(req: Request, res: Response): Promise<void> {
+  getAllUsers = async (req: Request, res: Response): Promise<void> => {
     try {
       // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
       if (!req.user) {
@@ -38,12 +38,12 @@ class UserController {
       logger.error(`Error fetching users: ${error.message}`);
       res.status(500).json({ message: 'Internal server error' });
     }
-  }
+  };
 
   /**
    * Get a specific user (admin only)
    */
-  async getUserById(req: Request, res: Response): Promise<void> {
+  getUserById = async (req: Request, res: Response): Promise<void> => {
     try {
       // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
       if (!req.user) {
@@ -68,14 +68,13 @@ class UserController {
       logger.error(`Error fetching user: ${error.message}`);
       res.status(500).json({ message: 'Internal server error' });
     }
-  }
+  };
 
   /**
    * Update a user (admin only)
    */
-  async updateUser(req: Request, res: Response): Promise<void> {
+  updateUser = async (req: Request, res: Response): Promise<void> => {
     try {
-      // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
       if (!req.user) {
         res.status(401).json({ message: 'Authentication required' });
         return;
@@ -103,7 +102,7 @@ class UserController {
         return;
       }
       
-      // Update user with WhereOptions
+      // Update user - fixed where condition
       const updatedData = {
         username,
         email,
@@ -113,7 +112,7 @@ class UserController {
       
       const [updateCount, updatedUsers] = await databaseController.updateUser(
         updatedData, 
-        { where: { user_id: userId } }
+        { user_id: userId }  // Remove nested where clause
       );
       
       if (updateCount === 0) {
@@ -128,7 +127,6 @@ class UserController {
         return;
       }
       
-      // Remove password from response
       const { password, ...userWithoutPassword } = updatedUser;
       
       logger.info(`User ${userId} successfully updated`);
@@ -137,12 +135,12 @@ class UserController {
       logger.error(`Error updating user: ${error.message}`);
       res.status(500).json({ message: 'Internal server error' });
     }
-  }
+  };
 
   /**
    * Delete a user (admin only)
    */
-  async deleteUser(req: Request, res: Response): Promise<void> {
+  deleteUser = async (req: Request, res: Response): Promise<void> => {
     try {
       // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
       if (!req.user) {
@@ -166,8 +164,8 @@ class UserController {
         return;
       }
       
-      // Delete user with WhereOptions
-      await databaseController.deleteUser({ where: { user_id: userId } });
+      // Delete user - fixed where condition
+      await databaseController.deleteUser({ user_id: userId });
       
       logger.info(`User ${userId} successfully deleted`);
       res.status(200).json({ message: 'User successfully deleted' });
@@ -175,12 +173,12 @@ class UserController {
       logger.error(`Error deleting user: ${error.message}`);
       res.status(500).json({ message: 'Internal server error' });
     }
-  }
+  };
 
   /**
    * Change registration status (admin only)
    */
-  async toggleRegistrationStatus(req: Request, res: Response): Promise<void> {
+  toggleRegistrationStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
       if (!req.user) {
@@ -203,40 +201,40 @@ class UserController {
       logger.error(`Error changing registration status: ${error.message}`);
       res.status(500).json({ message: 'Internal server error' });
     }
-  }
+  };
 
   /**
    * Get registration status
    */
-  async getRegistrationStatus(req: Request, res: Response): Promise<void> {
+  getRegistrationStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       res.status(200).json({ registrationEnabled: isRegistrationEnabled });
     } catch (error: any) {
       logger.error(`Error getting registration status: ${error.message}`);
       res.status(500).json({ message: 'Internal server error' });
     }
-  }
+  };
 
   /**
    * Check if registration is enabled before registration
    * This method can be used as middleware
    */
-  checkRegistrationEnabled(req: Request, res: Response, next: Function): void {
+  checkRegistrationEnabled = (req: Request, res: Response, next: Function): void => {
     if (!isRegistrationEnabled) {
       logger.warn('Registration attempt while registration is disabled');
       res.status(403).json({ message: 'Registration of new users is currently disabled' });
       return;
     }
     next();
-  }
+  };
 
   /**
    * Email validation
    */
-  private isValidEmail(email: string): boolean {
+  private isValidEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
-  }
+  };
 }
 
 export default new UserController();
