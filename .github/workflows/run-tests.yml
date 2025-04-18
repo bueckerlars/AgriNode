@@ -25,11 +25,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'npm'
           
       # Run tests for the gateway service
       - name: Install dependencies for gateway
-        run: npm ci
+        run: npm ci || npm install
         working-directory: ./agriNode-gateway
         
       - name: Run gateway tests
@@ -38,7 +37,7 @@ jobs:
         
       # Uncomment if agriNode-dashboard has tests in the future
       # - name: Install dependencies for dashboard
-      #   run: npm ci
+      #   run: npm ci || npm install
       #   working-directory: ./agriNode-dashboard
       #   
       # - name: Run dashboard tests
