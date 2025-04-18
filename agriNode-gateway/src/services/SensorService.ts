@@ -157,10 +157,15 @@ class SensorService {
             delete updateData.sensor_id;
             delete updateData.user_id;
             
-            // Update the sensor
-            await databaseController.updateSensor(updateData, {
-                where: { sensor_id: sensorId }
-            });
+            // Update the sensor with correct where clause
+            const [updateCount] = await databaseController.updateSensor(
+                updateData,
+                { sensor_id: sensorId }  // Direkte where-Bedingung ohne zusätzliches where-Objekt
+            );
+            
+            if (updateCount === 0) {
+                throw new Error('Sensor not found');
+            }
             
             // Get updated sensor
             const updatedSensor = await databaseController.findSensorById(sensorId);
