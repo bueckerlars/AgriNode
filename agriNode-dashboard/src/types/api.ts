@@ -103,3 +103,11 @@ export interface UpdateSensorDataRequest {
 export interface AuthResponse {
   accessToken: string;
 }
+
+// User-Request-Typen
+export interface UpdateUserRequest {
+  username?: string;
+  email?: string;
+  role?: 'admin' | 'user';
+  active?: boolean;
+}

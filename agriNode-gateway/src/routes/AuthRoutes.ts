@@ -1,6 +1,7 @@
 import express from 'express';
 import AuthController from '../controller/AuthController';
 import AuthMiddleware from '../middleware/AuthMiddleware';
+import UserController from '../controller/UserController';
 const router = express.Router();
 
 /**
@@ -42,11 +43,11 @@ const router = express.Router();
  *                 token:
  *                   type: string
  *       400:
- *         description: Invalid input data
- *       409:
- *         description: Email already exists
+ *         description: Invalid input or user already exists
+ *       403:
+ *         description: Registration is currently disabled
  */
-router.post('/register', AuthController.register);
+router.post('/register', UserController.checkRegistrationEnabled, AuthController.register);
 
 /**
  * @swagger

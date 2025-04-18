@@ -26,6 +26,15 @@ class AuthService {
       throw new Error('User already exists');
     }
 
+    // Check if this is the first user, if so, assign admin role
+    const allUsers = await databaseController.findAllUsers();
+    let userRole = role;
+    
+    if (allUsers.length === 0) {
+      logger.info('First user registration detected - assigning admin role');
+      userRole = 'admin';
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -35,7 +44,7 @@ class AuthService {
       email,
       password: hashedPassword,
       username,
-      role: role as 'admin' | 'user'
+      role: userRole as 'admin' | 'user'
     });
 
     if (!newUser) {
@@ -48,7 +57,7 @@ class AuthService {
     const accessToken = this.generateToken(newUser);
     const refreshToken = this.generateRefreshToken(newUser.user_id);
     
-    logger.info(`User registered successfully: ${email}`);
+    logger.info(`User registered successfully: ${email} with role: ${userRole}`);
     return { accessToken, refreshToken };
   }
 
@@ -163,7 +172,8 @@ class AuthService {
     // Create payload without sensitive data
     const payload = {
       id: user.user_id,
-      email: user.email
+      email: user.email,
+      role: user.role 
     };
 
     // Generate and return token

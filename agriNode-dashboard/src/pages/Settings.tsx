@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApiKeys } from '@/contexts/ApiKeysContext';
+import { useUsers } from '@/contexts/UsersContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,18 +9,56 @@ import { toast } from 'sonner';
 import { ClipboardIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 
 export const Settings: React.FC = () => {
-  const { apiKeys, loading, error, fetchApiKeys, createApiKey, deleteApiKey } = useApiKeys();
+  const { apiKeys, loading: apiKeysLoading, error: apiKeysError, fetchApiKeys, createApiKey, deleteApiKey } = useApiKeys();
+  const { 
+    users, 
+    loading: usersLoading, 
+    error: usersError, 
+    registrationEnabled,
+    fetchUsers, 
+    updateUser, 
+    deleteUser, 
+    toggleRegistrationStatus 
+  } = useUsers();
+  
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
+  
+  // State for user dialog
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<{
+    userId: string;
+    username: string;
+    email: string;
+    role: 'admin' | 'user';
+    active: boolean;
+  } | null>(null);
 
   useEffect(() => {
     fetchApiKeys();
-  }, []);
+    if (isAdmin) {
+      fetchUsers();
+    }
+  }, [isAdmin]);
 
+  // API Key functions
   const handleToggleVisibility = (id: string, key: string) => {
     if (visibleKeys[id]) {
       setVisibleKeys(prev => ({ ...prev, [id]: false }));
@@ -34,7 +74,7 @@ export const Settings: React.FC = () => {
 
   const handleCopyKey = (key: string) => {
     navigator.clipboard.writeText(key);
-    toast.success('Schlüssel kopiert!');
+    toast.success('Key copied!');
   };
 
   const handleOpenDialog = (key: string) => {
@@ -48,7 +88,7 @@ export const Settings: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error('Bitte geben Sie einen Namen ein');
+      toast.error('Please enter a name');
       return;
     }
     try {
@@ -56,52 +96,104 @@ export const Settings: React.FC = () => {
       await createApiKey(name.trim());
       setName('');
     } catch {
-      // Fehler wird bereits in Context behandelt
+      // Error is already handled in context
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('API-Schlüssel wirklich löschen?')) return;
+    if (!confirm('Delete API key?')) return;
     try {
       await deleteApiKey(id);
     } catch {
-      // Fehler wird bereits angezeigt
+      // Error is already displayed
+    }
+  };
+  
+  // User functions
+  const handleToggleRegistration = async (enabled: boolean) => {
+    if (!isAdmin) return;
+    try {
+      await toggleRegistrationStatus(enabled);
+    } catch {
+      // Error is already handled in context
+    }
+  };
+  
+  const openEditUserDialog = (userId: string) => {
+    const userToEdit = users.find(u => u.user_id === userId);
+    if (!userToEdit) return;
+    
+    setEditingUser({
+      userId: userToEdit.user_id,
+      username: userToEdit.username,
+      email: userToEdit.email,
+      role: userToEdit.role,
+      active: true // Assumption: We set all users as active since we don't have a status
+    });
+    
+    setUserDialogOpen(true);
+  };
+  
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    
+    try {
+      await updateUser(editingUser.userId, {
+        username: editingUser.username,
+        email: editingUser.email,
+        role: editingUser.role,
+        active: editingUser.active
+      });
+      setUserDialogOpen(false);
+      setEditingUser(null);
+    } catch {
+      // Error is already handled in context
+    }
+  };
+  
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Delete user?')) return;
+    
+    try {
+      await deleteUser(userId);
+    } catch {
+      // Error is already handled in context
     }
   };
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">Einstellungen</h1>
+      <h1 className="text-2xl font-semibold">Settings</h1>
 
       <Card>
         <CardHeader>
-          <h2 className="text-xl font-semibold">API-Schlüssel verwalten</h2>
+          <h2 className="text-xl font-semibold">Manage API Keys</h2>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex items-center space-x-2 mb-4">
             <Input
-              placeholder="Name für neuen Schlüssel"
+              placeholder="Name for new key"
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={submitting}
             />
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Erstelle...' : 'Erstellen'}
+              {submitting ? 'Creating...' : 'Create'}
             </Button>
           </form>
 
-          {error && <p className="text-red-600 mb-4">{error}</p>}
+          {apiKeysError && <p className="text-red-600 mb-4">{apiKeysError}</p>}
 
           <div className="overflow-x-auto">
             <Table className="w-full table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-1/4">Name</TableHead>
-                  <TableHead className="w-1/2">Schlüssel</TableHead>
-                  <TableHead className="w-1/4">Erstellt am</TableHead>
-                  <TableHead className="w-1/4">Aktionen</TableHead>
+                  <TableHead className="w-1/2">Key</TableHead>
+                  <TableHead className="w-1/4">Created at</TableHead>
+                  <TableHead className="w-1/4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -132,7 +224,7 @@ export const Settings: React.FC = () => {
                     <TableCell>{new Date(key.created_at).toLocaleString()}</TableCell>
                     <TableCell>
                       <Button variant="destructive" size="sm" onClick={() => handleDelete(key.api_key_id)}>
-                        Löschen
+                        Delete
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -143,18 +235,165 @@ export const Settings: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Only visible for admins */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold">User Management</h2>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2 mb-6">
+              <Switch 
+                id="registration" 
+                checked={registrationEnabled}
+                onCheckedChange={handleToggleRegistration}
+              />
+              <Label htmlFor="registration">Allow registration for new users</Label>
+            </div>
+
+            {usersError && <p className="text-red-600 mb-4">{usersError}</p>}
+
+            <div className="overflow-x-auto">
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Registered at</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map(listUser => {
+                    // Check if this is the current logged-in user
+                    const isCurrentUser = user && listUser.user_id === user.user_id;
+                    
+                    return (
+                      <TableRow key={listUser.user_id}>
+                        <TableCell>{listUser.username}</TableCell>
+                        <TableCell>{listUser.email}</TableCell>
+                        <TableCell>
+                          {listUser.role === 'admin' ? 'Administrator' : 'User'}
+                        </TableCell>
+                        <TableCell>{new Date(listUser.created_at).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => openEditUserDialog(listUser.user_id)}
+                              disabled={isCurrentUser}
+                              title={isCurrentUser ? "You cannot edit your own account here" : "Edit user"}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => handleDeleteUser(listUser.user_id)}
+                              disabled={isCurrentUser}
+                              title={isCurrentUser ? "You cannot delete your own account" : "Delete user"}
+                            >
+                              Delete
+                            </Button>
+                            {isCurrentUser && (
+                              <span className="text-xs text-muted-foreground self-center ml-2">
+                                (Current user)
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* API Key Dialog */}
       {dialogKey && (
-        <Dialog open={!!dialogKey}>
+        <Dialog open={!!dialogKey} onOpenChange={() => setDialogKey(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>API-Schlüssel</DialogTitle>
+              <DialogTitle>API Key</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <code className="block font-mono text-sm break-all">{dialogKey}</code>
-              <Button onClick={() => handleCopyKey(dialogKey)}>Kopieren</Button>
+              <Button onClick={() => handleCopyKey(dialogKey)}>Copy</Button>
             </div>
             <DialogFooter>
-              <Button onClick={handleCloseDialog}>Schließen</Button>
+              <Button onClick={handleCloseDialog}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      
+      {/* Edit User Dialog */}
+      {editingUser && (
+        <Dialog open={userDialogOpen} onOpenChange={open => {
+          setUserDialogOpen(open);
+          if (!open) setEditingUser(null);
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input 
+                  id="username"
+                  value={editingUser.username} 
+                  onChange={e => setEditingUser({...editingUser, username: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email"
+                  value={editingUser.email} 
+                  onChange={e => setEditingUser({...editingUser, email: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select 
+                  value={editingUser.role}
+                  onValueChange={(value: 'admin' | 'user') => 
+                    setEditingUser({...editingUser, role: value})
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="active" 
+                  checked={editingUser.active}
+                  onCheckedChange={checked => 
+                    setEditingUser({...editingUser, active: checked})
+                  }
+                />
+                <Label htmlFor="active">User active</Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setUserDialogOpen(false);
+                setEditingUser(null);
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateUser}>Save</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
