@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApiKeys } from '@/contexts/ApiKeysContext';
 import { useUsers } from '@/contexts/UsersContext';
 import { useAuth } from '@/contexts/AuthContext';
+import authApi from '@/api/authApi';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,16 @@ export const Settings: React.FC = () => {
     role: 'admin' | 'user';
     active: boolean;
   } | null>(null);
+
+  // State for new user dialog
+  const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    email: '',
+    password: '',
+    role: 'user' as 'admin' | 'user'
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   useEffect(() => {
     fetchApiKeys();
@@ -134,6 +145,41 @@ export const Settings: React.FC = () => {
     });
     
     setUserDialogOpen(true);
+  };
+
+  const openNewUserDialog = () => {
+    setNewUser({
+      username: '',
+      email: '',
+      password: '',
+      role: 'user'
+    });
+    setNewUserDialogOpen(true);
+  };
+  
+  const handleCreateUser = async () => {
+    if (!newUser.username.trim() || !newUser.email.trim() || !newUser.password.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    try {
+      setCreatingUser(true);
+      await authApi.register({
+        username: newUser.username.trim(),
+        email: newUser.email.trim(),
+        password: newUser.password.trim()
+      });
+      
+      toast.success('User created successfully');
+      setNewUserDialogOpen(false);
+      // Refresh user list
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create user');
+    } finally {
+      setCreatingUser(false);
+    }
   };
   
   const handleUpdateUser = async () => {
@@ -242,13 +288,16 @@ export const Settings: React.FC = () => {
             <h2 className="text-xl font-semibold">User Management</h2>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2 mb-6">
-              <Switch 
-                id="registration" 
-                checked={registrationEnabled}
-                onCheckedChange={handleToggleRegistration}
-              />
-              <Label htmlFor="registration">Allow registration for new users</Label>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="registration" 
+                  checked={registrationEnabled}
+                  onCheckedChange={handleToggleRegistration}
+                />
+                <Label htmlFor="registration">Allow registration for new users</Label>
+              </div>
+              <Button onClick={openNewUserDialog}>Add User</Button>
             </div>
 
             {usersError && <p className="text-red-600 mb-4">{usersError}</p>}
@@ -398,6 +447,73 @@ export const Settings: React.FC = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* New User Dialog */}
+      <Dialog open={newUserDialogOpen} onOpenChange={open => {
+        setNewUserDialogOpen(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-username">Username *</Label>
+              <Input 
+                id="new-username"
+                value={newUser.username} 
+                onChange={e => setNewUser({...newUser, username: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-email">Email *</Label>
+              <Input 
+                id="new-email"
+                type="email"
+                value={newUser.email} 
+                onChange={e => setNewUser({...newUser, email: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Password *</Label>
+              <Input 
+                id="new-password"
+                type="password"
+                value={newUser.password} 
+                onChange={e => setNewUser({...newUser, password: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-role">Role</Label>
+              <Select 
+                value={newUser.role}
+                onValueChange={(value: 'admin' | 'user') => 
+                  setNewUser({...newUser, role: value})
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewUserDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={creatingUser}>
+              {creatingUser ? 'Creating...' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
