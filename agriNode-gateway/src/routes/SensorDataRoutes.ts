@@ -5,7 +5,7 @@ import AuthMiddleware from '../middleware/AuthMiddleware';
 const router = Router();
 
 // Apply authentication middleware to all sensor data routes
-// router.use(AuthMiddleware.authenticate);
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @swagger
@@ -119,7 +119,7 @@ router.get('/:id', SensorDataController.getSensorDataById);
 /**
  * @swagger
  * /api/sensor-data/sensor/{sensorId}:
- *   post:
+ *   get:
  *     summary: Get all data for a specific sensor
  *     tags: [Sensor Data]
  *     security:
@@ -131,18 +131,6 @@ router.get('/:id', SensorDataController.getSensorDataById);
  *           type: string
  *         required: true
  *         description: Sensor ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - user_id
- *             properties:
- *               user_id:
- *                 type: string
- *                 description: ID of the user requesting the data
  *     responses:
  *       200:
  *         description: List of sensor data records for the specified sensor
@@ -159,12 +147,12 @@ router.get('/:id', SensorDataController.getSensorDataById);
  *       500:
  *         description: Server error
  */
-router.post('/sensor/:sensorId', SensorDataController.getSensorData);
+router.get('/sensor/:sensorId', SensorDataController.getSensorData);
 
 /**
  * @swagger
  * /api/sensor-data/sensor/{sensorId}/timerange:
- *   post:
+ *   get:
  *     summary: Get sensor data within a time range
  *     tags: [Sensor Data]
  *     security:
@@ -176,28 +164,20 @@ router.post('/sensor/:sensorId', SensorDataController.getSensorData);
  *           type: string
  *         required: true
  *         description: Sensor ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - user_id
- *               - startTime
- *               - endTime
- *             properties:
- *               user_id:
- *                 type: string
- *                 description: ID of the user requesting the data
- *               startTime:
- *                 type: string
- *                 format: date-time
- *                 description: Start time (ISO format)
- *               endTime:
- *                 type: string
- *                 format: date-time
- *                 description: End time (ISO format)
+ *       - in: query
+ *         name: startTime
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: true
+ *         description: Start time (ISO format)
+ *       - in: query
+ *         name: endTime
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: true
+ *         description: End time (ISO format)
  *     responses:
  *       200:
  *         description: List of sensor data records within the specified time range
@@ -216,7 +196,7 @@ router.post('/sensor/:sensorId', SensorDataController.getSensorData);
  *       500:
  *         description: Server error
  */
-router.post('/sensor/:sensorId/timerange', SensorDataController.getSensorDataByTimeRange);
+router.get('/sensor/:sensorId/timerange', SensorDataController.getSensorDataByTimeRange);
 
 /**
  * @swagger

@@ -71,8 +71,8 @@ class SensorDataController {
    */
   async getSensorData(req: Request, res: Response): Promise<void> {
     try {
-      // Change from req.user_id to req.body.user_id
-      const userId = req.body.user_id;
+      // Statt req.body.user_id verwende req.user.id aus dem Auth-Token
+      const userId = req.user.id;
       const { sensorId } = req.params;
       
       if (!sensorId) {
@@ -80,8 +80,9 @@ class SensorDataController {
         return;
       }
       
+      // Benutzer sollte immer vorhanden sein, da wir die Auth-Middleware verwenden
       if (!userId) {
-        res.status(400).json({ success: false, message: 'User ID is required' });
+        res.status(401).json({ success: false, message: 'Authentication required' });
         return;
       }
       
@@ -118,10 +119,10 @@ class SensorDataController {
    */
   async getSensorDataByTimeRange(req: Request, res: Response): Promise<void> {
     try {
-      // Change from req.user.id to req.body.user_id
-      const userId = req.body.user_id;
+      // Statt req.body.user_id verwende req.user.id aus dem Auth-Token
+      const userId = req.user.id;
       const { sensorId } = req.params;
-      const { startTime, endTime } = req.body;
+      const { startTime, endTime } = req.query;
       
       if (!sensorId) {
         res.status(400).json({ success: false, message: 'Sensor ID is required' });
@@ -133,8 +134,9 @@ class SensorDataController {
         return;
       }
       
+      // Benutzer sollte immer vorhanden sein, da wir die Auth-Middleware verwenden
       if (!userId) {
-        res.status(400).json({ success: false, message: 'User ID is required' });
+        res.status(401).json({ success: false, message: 'Authentication required' });
         return;
       }
       
@@ -149,8 +151,8 @@ class SensorDataController {
         return;
       }
       
-      const start = new Date(startTime);
-      const end = new Date(endTime);
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
       
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         res.status(400).json({ success: false, message: 'Invalid date format' });

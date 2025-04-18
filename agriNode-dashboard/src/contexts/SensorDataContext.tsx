@@ -35,15 +35,14 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
   const getSensorDataBySensorId = async (sensorId: string, signal?: AbortSignal) => {
     try {
       setError(null);
-      // Don't set global loading state here to match our pattern with getSensorDataByTimeRange
-      if (!user || !user.user_id) {
+      if (!user) {
         throw new Error('Benutzer ist nicht eingeloggt');
       }
 
-      const data = await sensorDataApi.getSensorDataBySensorId(sensorId, user.user_id, signal);
+      const data = await sensorDataApi.getSensorDataBySensorId(sensorId, signal);
+      console.log('Sensor data:', data);
       return data;
     } catch (error) {
-      // Only log and show errors if not caused by AbortController
       if ((error as Error).name !== 'AbortError') {
         console.error('Fehler beim Abrufen der Sensordaten:', error);
         setError('Fehler beim Laden der Sensordaten');
@@ -56,15 +55,13 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
   const getSensorDataByTimeRange = async (sensorId: string, startTime: string, endTime: string, signal?: AbortSignal) => {
     try {
       setError(null);
-      // We don't set global loading state here anymore since we manage it in the component
-      if (!user || !user.user_id) {
+      if (!user) {
         throw new Error('Benutzer ist nicht eingeloggt');
       }
 
-      const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, user.user_id, startTime, endTime, signal);
+      const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, startTime, endTime, signal);
       return data;
     } catch (error) {
-      // Only log and show errors if not caused by AbortController
       if ((error as Error).name !== 'AbortError') {
         console.error('Fehler beim Abrufen der Sensordaten im Zeitraum:', error);
         setError('Fehler beim Laden der Sensordaten im Zeitraum');

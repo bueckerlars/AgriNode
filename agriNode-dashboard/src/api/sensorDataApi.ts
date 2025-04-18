@@ -5,6 +5,14 @@ import {
   UpdateSensorDataRequest 
 } from '@/types/api';
 
+// Definiere ein Interface für das erwartete Antwortformat der API
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  error?: string;
+}
+
 const sensorDataApi = {
   /**
    * Erstellt neue Sensordaten
@@ -59,17 +67,17 @@ const sensorDataApi = {
 
   /**
    * Ruft alle Daten für einen bestimmten Sensor ab
-   * Geändert von GET zu POST mit user_id im Body
+   * Berücksichtigt das verschachtelte Antwortformat { success: true, data: [...] }
    */
-  getSensorDataBySensorId: async (sensorId: string, userId: string, signal?: AbortSignal): Promise<SensorData[]> => {
-    const response = await apiClient.post<SensorData[]>(
+  getSensorDataBySensorId: async (sensorId: string, signal?: AbortSignal): Promise<SensorData[]> => {
+    const response = await apiClient.get<ApiResponse<SensorData[]>>(
       `/sensor-data/sensor/${sensorId}`,
-      { user_id: userId },
       {
         signal // Pass the signal to axios
       }
     );
-    return response.data;
+    // Extrahiere die eigentlichen Datensätze aus dem verschachtelten Format
+    return response.data.data || [];
   },
 
   /**
@@ -84,27 +92,26 @@ const sensorDataApi = {
 
   /**
    * Ruft Sensordaten in einem bestimmten Zeitraum ab
-   * Geändert von GET zu POST mit user_id im Body
+   * Berücksichtigt das verschachtelte Antwortformat { success: true, data: [...] }
    */
   getSensorDataByTimeRange: async (
     sensorId: string,
-    userId: string,
     startTime: string, 
     endTime: string,
     signal?: AbortSignal
   ): Promise<SensorData[]> => {
-    const response = await apiClient.post<SensorData[]>(
+    const response = await apiClient.get<ApiResponse<SensorData[]>>(
       `/sensor-data/sensor/${sensorId}/timerange`,
       {
-        user_id: userId,
-        startTime,
-        endTime
-      },
-      {
+        params: {
+          startTime,
+          endTime
+        },
         signal // Pass the signal to axios
       }
     );
-    return response.data;
+    // Extrahiere die eigentlichen Datensätze aus dem verschachtelten Format
+    return response.data.data || [];
   }
 };
 
