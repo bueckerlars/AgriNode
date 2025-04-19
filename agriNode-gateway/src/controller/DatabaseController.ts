@@ -278,6 +278,23 @@ export class DatabaseController {
     }
   }
 
+  public async updateSensorSharing(data: Partial<SensorSharing>, options: { where: WhereOptions }): Promise<SensorSharing | null> {
+    try {
+      const [affectedCount, affectedRows] = await this.update<SensorSharing>('SensorSharing', data, options.where);
+      
+      if (affectedCount === 0) {
+        logger.warn('No sensor sharing records were updated');
+        return null;
+      }
+      
+      // Return the first updated record if it exists
+      return affectedRows && affectedRows.length > 0 ? affectedRows[0] : null;
+    } catch (error) {
+      logger.error(`Error in DatabaseController.updateSensorSharing: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
   public async findSensorSharingsByOwner(userId: string): Promise<SensorSharing[]> {
     return this.findAll<SensorSharing>('SensorSharing', { where: { owner_id: userId } });
   }

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../config/logger';
 import databaseController from '../controller/DatabaseController';
-import { SensorSharing, Sensor, User } from '../types';
+import { SensorSharing, SharingStatus, Sensor, User } from '../types';
 
 // Interface für das Join-Ergebnis von SensorSharing mit User
 interface SensorSharingWithUser extends SensorSharing {
@@ -57,7 +57,8 @@ class SensorSharingService {
         sharing_id: uuidv4(),
         sensor_id: sensorId,
         owner_id: ownerId,
-        shared_with_id: sharedWithId
+        shared_with_id: sharedWithId,
+        status: 'pending'
       };
       
       const newSharing = await databaseController.createSensorSharing(sharingData);
@@ -73,7 +74,44 @@ class SensorSharingService {
       throw error;
     }
   }
-  
+
+  /**
+   * Akzeptiert oder lehnt eine Sensor-Freigabe ab
+   */
+  async updateSharingStatus(sharingId: string, userId: string, status: SharingStatus): Promise<SensorSharing> {
+    try {
+      logger.info(`Updating sharing ${sharingId} status to ${status} by user ${userId}`);
+
+      const sharing = await databaseController.findOneSensorSharing({
+        where: { 
+          sharing_id: sharingId,
+          shared_with_id: userId,
+          status: 'pending'
+        }
+      });
+
+      if (!sharing) {
+        logger.warn(`Sharing ${sharingId} not found or not pending for user ${userId}`);
+        throw new Error('Sharing not found or already processed');
+      }
+
+      const updatedSharing = await databaseController.updateSensorSharing(
+        { status },
+        { where: { sharing_id: sharingId } }
+      );
+
+      if (!updatedSharing) {
+        throw new Error('Failed to update sharing status');
+      }
+
+      logger.info(`Successfully updated sharing ${sharingId} status to ${status}`);
+      return updatedSharing;
+    } catch (error) {
+      logger.error(`Error in SensorSharingService.updateSharingStatus: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
   /**
    * Entfernt die Freigabe eines Sensors für einen anderen Benutzer
    */
@@ -110,7 +148,7 @@ class SensorSharingService {
       throw error;
     }
   }
-  
+
   /**
    * Entfernt alle Freigaben für einen bestimmten Sensor
    */
@@ -141,7 +179,7 @@ class SensorSharingService {
       throw error;
     }
   }
-  
+
   /**
    * Holt alle Sensoren, die mit einem bestimmten Benutzer geteilt wurden
    */
@@ -152,8 +190,11 @@ class SensorSharingService {
       // Holen aller Sharing-Einträge für diesen Benutzer
       const sharings = await databaseController.findSensorSharingsBySharedWith(userId);
       
+      // Filtern nach akzeptierten Freigaben
+      const acceptedSharings = sharings.filter(sharing => sharing.status === 'accepted');
+      
       // Extrahieren der Sensor-IDs
-      const sensorIds = sharings.map(sharing => sharing.sensor_id);
+      const sensorIds = acceptedSharings.map(sharing => sharing.sensor_id);
       
       if (sensorIds.length === 0) {
         return [];
@@ -173,9 +214,42 @@ class SensorSharingService {
       throw error;
     }
   }
-  
+
   /**
-   * Prüft, ob ein Benutzer Zugriff auf einen Sensor hat (entweder als Eigentümer oder durch Freigabe)
+   * Holt alle ausstehenden (pending) Sensor-Freigaben für einen Benutzer
+   */
+  async getPendingSensorShares(userId: string): Promise<Array<SensorSharing & { sensor: Sensor, owner: User }>> {
+    try {
+      logger.info(`Getting pending sensor shares for user ${userId}`);
+      
+      const pendingShares = await databaseController.findAllSensorSharings({
+        where: {
+          shared_with_id: userId,
+          status: 'pending'
+        },
+        include: [
+          {
+            model: databaseController.getModel('Sensor'),
+            as: 'Sensor'
+          },
+          {
+            model: databaseController.getModel('User'),
+            as: 'owner',
+            attributes: ['user_id', 'username', 'email']
+          }
+        ]
+      }) as unknown as Array<SensorSharing & { sensor: Sensor, owner: User }>;
+      
+      logger.info(`Found ${pendingShares.length} pending shares for user ${userId}`);
+      return pendingShares;
+    } catch (error) {
+      logger.error(`Error in SensorSharingService.getPendingSensorShares: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Prüft, ob ein Benutzer Zugriff auf einen Sensor hat (entweder als Eigentümer oder durch akzeptierte Freigabe)
    */
   async checkSensorAccess(sensorId: string, userId: string): Promise<{ hasAccess: boolean, isOwner: boolean }> {
     try {
@@ -196,11 +270,12 @@ class SensorSharingService {
         return { hasAccess: true, isOwner: true };
       }
       
-      // Wenn nicht der Eigentümer, prüfen, ob der Sensor geteilt wurde
+      // Wenn nicht der Eigentümer, prüfen, ob der Sensor geteilt und akzeptiert wurde
       const sharing = await databaseController.findOneSensorSharing({
         where: {
           sensor_id: sensorId,
-          shared_with_id: userId
+          shared_with_id: userId,
+          status: 'accepted'
         }
       });
       
@@ -213,11 +288,11 @@ class SensorSharingService {
       throw error;
     }
   }
-  
+
   /**
    * Holt alle Benutzer, mit denen ein bestimmter Sensor geteilt wurde
    */
-  async getSharedUsers(sensorId: string, ownerId: string): Promise<{ sharing_id: string, user_id: string, username: string, email: string }[]> {
+  async getSharedUsers(sensorId: string, ownerId: string): Promise<{ sharing_id: string, user_id: string, username: string, email: string, status: SharingStatus }[]> {
     try {
       logger.info(`Getting all users with whom sensor ${sensorId} is shared`);
       
@@ -253,9 +328,10 @@ class SensorSharingService {
           sharing_id: sharing.sharing_id,
           user_id: sharing.sharedWith.user_id,
           username: sharing.sharedWith.username,
-          email: sharing.sharedWith.email
+          email: sharing.sharedWith.email,
+          status: sharing.status
         };
-      }).filter((user): user is { sharing_id: string, user_id: string, username: string, email: string } => 
+      }).filter((user): user is { sharing_id: string, user_id: string, username: string, email: string, status: SharingStatus } => 
         user !== null
       );
       

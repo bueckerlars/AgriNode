@@ -54,7 +54,7 @@ router.use(AuthMiddleware.authenticate);
  * @swagger
  * /api/sharing/shared-with-me:
  *   get:
- *     summary: Alle Sensoren abrufen, die mit dem authentifizierten Benutzer geteilt wurden
+ *     summary: Alle akzeptierten Sensoren abrufen, die mit dem authentifizierten Benutzer geteilt wurden
  *     tags: [SensorSharing]
  *     security:
  *       - bearerAuth: []
@@ -271,5 +271,86 @@ router.delete('/:sensorId/:sharedUserId', SensorSharingController.unshareSensor)
  *         description: Serverfehler
  */
 router.delete('/:sensorId', SensorSharingController.removeAllSharings);
+
+/**
+ * @swagger
+ * /api/sharing/pending:
+ *   get:
+ *     summary: Ausstehende Sensor-Freigaben abrufen
+ *     tags: [SensorSharing]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste der ausstehenden Freigaben
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SensorSharing'
+ *       401:
+ *         description: Nicht autorisiert
+ *       500:
+ *         description: Serverfehler
+ */
+router.get('/pending', SensorSharingController.getPendingShares);
+
+/**
+ * @swagger
+ * /api/sharing/{sharingId}/status:
+ *   put:
+ *     summary: Status einer Sensor-Freigabe aktualisieren
+ *     tags: [SensorSharing]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sharingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID der Sensor-Freigabe
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [accepted, rejected]
+ *                 description: Neuer Status der Freigabe
+ *     responses:
+ *       200:
+ *         description: Status erfolgreich aktualisiert
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Status der Freigabe wurde erfolgreich aktualisiert
+ *       401:
+ *         description: Nicht autorisiert
+ *       404:
+ *         description: Freigabe nicht gefunden
+ *       500:
+ *         description: Serverfehler
+ */
+router.put('/:sharingId/status', SensorSharingController.updateSharingStatus);
 
 export default router;

@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sensor, SensorRegistrationPayload } from "@/types/sensor";
-import { AlertTriangle, Leaf, Plus, Search } from "lucide-react";
+import { AlertTriangle, Bell, Leaf, Plus, Search } from "lucide-react";
+import PendingSharesDialog from "@/components/PendingSharesDialog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +23,7 @@ export const Dashboard = () => {
     const [sensorToDelete, setSensorToDelete] = useState<string | null>(null);
     const [sensorToEdit, setSensorToEdit] = useState<Sensor | undefined>(undefined);
     const [activeTab, setActiveTab] = useState("all");
+    const [isPendingSharesOpen, setIsPendingSharesOpen] = useState(false);
 
     // Effekt für das Filtern der Sensoren
     useEffect(() => {
@@ -101,10 +103,16 @@ export const Dashboard = () => {
                         </p>
                     </div>
                     
-                    <Button onClick={openAddDialog}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Sensor hinzufügen
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setIsPendingSharesOpen(true)}>
+                            <Bell className="mr-2 h-4 w-4" />
+                            Freigaben
+                        </Button>
+                        <Button onClick={openAddDialog}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Sensor hinzufügen
+                        </Button>
+                    </div>
                 </div>
                 
                 <div className="bg-card rounded-lg p-4 md:p-6 shadow-sm mb-6">
@@ -230,6 +238,11 @@ export const Dashboard = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <PendingSharesDialog 
+                isOpen={isPendingSharesOpen}
+                onClose={() => setIsPendingSharesOpen(false)}
+            />
         </div>
     );
 }

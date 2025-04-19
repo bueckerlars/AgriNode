@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import logger from '../config/logger';
 import sensorSharingService from '../services/SensorSharingService';
+import { SharingStatus } from '../types/SensorSharing';
 
 class SensorSharingController {
     /**
@@ -8,7 +9,6 @@ class SensorSharingController {
      */
     async shareSensor(req: Request, res: Response): Promise<void> {
         try {
-            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
             if (!req.user) {
                 res.status(401).json({ 
                     success: false, 
@@ -17,9 +17,9 @@ class SensorSharingController {
                 return;
             }
             
-            const ownerId = req.user.id; // Von JWT-Token via Auth-Middleware
+            const ownerId = req.user.id;
             const { sensorId } = req.params;
-            const { userId } = req.body; // ID des Benutzers, mit dem geteilt werden soll
+            const { userId } = req.body;
             
             if (!sensorId || !userId) {
                 res.status(400).json({ 
@@ -64,11 +64,92 @@ class SensorSharingController {
     }
 
     /**
+     * Aktualisiert den Status einer Sensor-Freigabe (Annehmen oder Ablehnen)
+     */
+    async updateSharingStatus(req: Request, res: Response): Promise<void> {
+        try {
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+
+            const userId = req.user.id;
+            const { sharingId } = req.params;
+            const { status } = req.body;
+
+            if (!sharingId || !status || !['accepted', 'rejected'].includes(status)) {
+                res.status(400).json({ 
+                    success: false, 
+                    message: 'Sharing-ID und gültiger Status (accepted/rejected) sind erforderlich' 
+                });
+                return;
+            }
+
+            const sharing = await sensorSharingService.updateSharingStatus(sharingId, userId, status as SharingStatus);
+
+            res.status(200).json({
+                success: true,
+                message: `Sensor-Freigabe wurde erfolgreich ${status === 'accepted' ? 'angenommen' : 'abgelehnt'}`,
+                data: sharing
+            });
+        } catch (error: any) {
+            logger.error(`Fehler in SensorSharingController.updateSharingStatus: ${error.message}`);
+
+            if (error.message.includes('not found') || error.message.includes('already processed')) {
+                res.status(404).json({ 
+                    success: false, 
+                    message: error.message 
+                });
+                return;
+            }
+
+            res.status(500).json({ 
+                success: false, 
+                message: 'Fehler beim Aktualisieren der Freigabe', 
+                error: error.message 
+            });
+        }
+    }
+
+    /**
+     * Holt alle ausstehenden Sensor-Freigaben für den aktuellen Benutzer
+     */
+    async getPendingShares(req: Request, res: Response): Promise<void> {
+        try {
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+
+            const userId = req.user.id;
+            const pendingShares = await sensorSharingService.getPendingSensorShares(userId);
+
+            res.status(200).json({
+                success: true,
+                data: pendingShares
+            });
+        } catch (error: any) {
+            logger.error(`Fehler in SensorSharingController.getPendingShares: ${error.message}`);
+
+            res.status(500).json({ 
+                success: false, 
+                message: 'Fehler beim Abrufen der ausstehenden Freigaben', 
+                error: error.message 
+            });
+        }
+    }
+
+    /**
      * Hebt die Freigabe eines Sensors für einen Benutzer auf
      */
     async unshareSensor(req: Request, res: Response): Promise<void> {
         try {
-            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
             if (!req.user) {
                 res.status(401).json({ 
                     success: false, 
@@ -126,7 +207,6 @@ class SensorSharingController {
      */
     async removeAllSharings(req: Request, res: Response): Promise<void> {
         try {
-            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
             if (!req.user) {
                 res.status(401).json({ 
                     success: false, 
@@ -184,7 +264,6 @@ class SensorSharingController {
      */
     async getSharedSensors(req: Request, res: Response): Promise<void> {
         try {
-            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
             if (!req.user) {
                 res.status(401).json({ 
                     success: false, 
@@ -217,7 +296,6 @@ class SensorSharingController {
      */
     async getSharedUsers(req: Request, res: Response): Promise<void> {
         try {
-            // Überprüfen, ob ein authentifizierter Benutzer vorhanden ist
             if (!req.user) {
                 res.status(401).json({ 
                     success: false, 

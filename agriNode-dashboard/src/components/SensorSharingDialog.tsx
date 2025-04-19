@@ -3,9 +3,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, UserPlus, X } from "lucide-react";
+import { Trash2, UserPlus, X, Check, Clock, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useSensorSharing } from "@/contexts/SensorSharingContext";
 import { useUsers } from "@/contexts/UsersContext";
@@ -25,6 +24,45 @@ interface SensorSharingDialogProps {
   onClose: () => void;
   sensor: Sensor;
 }
+
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'accepted':
+      return <Check className="h-4 w-4 text-green-600" />;
+    case 'rejected':
+      return <Ban className="h-4 w-4 text-red-600" />;
+    case 'pending':
+      return <Clock className="h-4 w-4 text-yellow-600" />;
+    default:
+      return null;
+  }
+};
+
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'accepted':
+      return 'Akzeptiert';
+    case 'rejected':
+      return 'Abgelehnt';
+    case 'pending':
+      return 'Ausstehend';
+    default:
+      return status;
+  }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'accepted':
+      return 'bg-green-100 text-green-800';
+    case 'rejected':
+      return 'bg-red-100 text-red-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
+    default:
+      return '';
+  }
+};
 
 const SensorSharingDialog = ({ isOpen, onClose, sensor }: SensorSharingDialogProps) => {
   const { users } = useUsers();
@@ -105,7 +143,7 @@ const SensorSharingDialog = ({ isOpen, onClose, sensor }: SensorSharingDialogPro
           <DialogTitle>Sensor teilen</DialogTitle>
           <DialogDescription>
             Teile den Sensor "{sensor?.name}" mit anderen Benutzern.
-            Geteilte Benutzer können nur die Sensordaten sehen, nicht den Sensor bearbeiten.
+            Geteilte Benutzer können nur die Sensordaten sehen, wenn sie die Freigabe akzeptieren.
           </DialogDescription>
         </DialogHeader>
 
@@ -147,18 +185,27 @@ const SensorSharingDialog = ({ isOpen, onClose, sensor }: SensorSharingDialogPro
                   Laden...
                 </div>
               ) : sharedUsers[sensorId]?.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2">
                   {sharedUsers[sensorId]?.map((sharedUser) => (
-                    <Badge key={sharedUser.user_id} variant="secondary" className="flex gap-1 items-center">
-                      {sharedUser.username}
-                      <button
+                    <div key={sharedUser.user_id} className="flex items-center justify-between bg-muted p-2 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <span>{sharedUser.username}</span>
+                        <Badge className={getStatusColor(sharedUser.status)} variant="outline">
+                          <span className="flex items-center gap-1">
+                            {getStatusIcon(sharedUser.status)}
+                            {getStatusText(sharedUser.status)}
+                          </span>
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleUnshareSensor(sharedUser.user_id)}
-                        className="ml-1 rounded-full hover:bg-slate-300 p-1"
                         disabled={loading}
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
                 </div>
               ) : (

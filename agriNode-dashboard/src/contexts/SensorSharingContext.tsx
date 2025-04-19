@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
-import sensorSharingApi, { SharedUser } from '../api/sensorSharingApi';
+import sensorSharingApi, { SharedUser, PendingShare } from '../api/sensorSharingApi';
 import { useAuth } from './AuthContext';
 import { Sensor } from '../types/sensor';
 
 interface SensorSharingContextType {
   sharedWithMe: Sensor[];
   sharedUsers: Record<string, SharedUser[]>;
+  pendingShares: PendingShare[];
   loading: boolean;
   error: string | null;
   shareSensor: (sensorId: string, userId: string) => Promise<void>;
@@ -14,6 +15,9 @@ interface SensorSharingContextType {
   removeAllSharings: (sensorId: string) => Promise<void>;
   getSharedUsers: (sensorId: string) => Promise<SharedUser[]>;
   fetchSharedWithMe: () => Promise<void>;
+  fetchPendingShares: () => Promise<void>;
+  acceptShare: (sharingId: string) => Promise<void>;
+  rejectShare: (sharingId: string) => Promise<void>;
 }
 
 const SensorSharingContext = createContext<SensorSharingContextType | undefined>(undefined);
@@ -30,12 +34,14 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [sharedWithMe, setSharedWithMe] = useState<Sensor[]>([]);
   const [sharedUsers, setSharedUsers] = useState<Record<string, SharedUser[]>>({});
+  const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchSharedWithMe();
+      fetchPendingShares();
     }
   }, [user]);
 
@@ -51,6 +57,23 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
       console.error('Fehler beim Abrufen der geteilten Sensoren:', error);
       setError('Fehler beim Laden der geteilten Sensoren');
       toast.error('Fehler beim Laden der geteilten Sensoren');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPendingShares = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      const shares = await sensorSharingApi.getPendingShares();
+      setPendingShares(shares);
+    } catch (error: any) {
+      console.error('Fehler beim Abrufen der ausstehenden Freigaben:', error);
+      setError('Fehler beim Laden der ausstehenden Freigaben');
+      toast.error('Fehler beim Laden der ausstehenden Freigaben');
     } finally {
       setLoading(false);
     }
@@ -142,16 +165,57 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const acceptShare = async (sharingId: string): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      await sensorSharingApi.updateSharingStatus(sharingId, 'accepted');
+      toast.success('Sensor-Freigabe wurde angenommen');
+      
+      // Remove from pending shares and update shared sensors
+      setPendingShares(prev => prev.filter(share => share.sharing_id !== sharingId));
+      await fetchSharedWithMe();
+    } catch (error: any) {
+      console.error('Fehler beim Annehmen der Freigabe:', error);
+      setError('Fehler beim Annehmen der Freigabe');
+      toast.error('Fehler beim Annehmen der Freigabe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejectShare = async (sharingId: string): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      await sensorSharingApi.updateSharingStatus(sharingId, 'rejected');
+      toast.success('Sensor-Freigabe wurde abgelehnt');
+      
+      // Remove from pending shares
+      setPendingShares(prev => prev.filter(share => share.sharing_id !== sharingId));
+    } catch (error: any) {
+      console.error('Fehler beim Ablehnen der Freigabe:', error);
+      setError('Fehler beim Ablehnen der Freigabe');
+      toast.error('Fehler beim Ablehnen der Freigabe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     sharedWithMe,
     sharedUsers,
+    pendingShares,
     loading,
     error,
     shareSensor,
     unshareSensor,
     removeAllSharings,
     getSharedUsers,
-    fetchSharedWithMe
+    fetchSharedWithMe,
+    fetchPendingShares,
+    acceptShare,
+    rejectShare
   };
 
   return (

@@ -1,5 +1,5 @@
 import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
-import { SensorSharing as SensorSharingType } from '../types/SensorSharing';
+import { SensorSharing as SensorSharingType, SharingStatus } from '../types/SensorSharing';
 import { v4 as uuidv4 } from 'uuid';
 
 interface SensorSharingCreationAttributes extends Optional<SensorSharingType, 'sharing_id'> {}
@@ -9,6 +9,7 @@ class SensorSharing extends Model<SensorSharingType, SensorSharingCreationAttrib
   public sensor_id!: string;
   public owner_id!: string;
   public shared_with_id!: string;
+  public status!: SharingStatus;
   public created_at!: Date;
   public updated_at!: Date;
 
@@ -50,6 +51,11 @@ export default (sequelize: Sequelize) => {
           model: 'Users',
           key: 'user_id',
         },
+      },
+      status: {
+        type: DataTypes.ENUM('pending', 'accepted', 'rejected'),
+        allowNull: false,
+        defaultValue: 'pending'
       },
       created_at: {
         type: DataTypes.DATE,

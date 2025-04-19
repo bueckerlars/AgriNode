@@ -1,4 +1,4 @@
-import {apiClient} from './apiClient';
+import { apiClient } from './apiClient';
 import { Sensor } from '../types/sensor';
 
 export interface SensorSharingResponse {
@@ -12,6 +12,18 @@ export interface SharedUser {
   user_id: string;
   username: string;
   email: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+export interface PendingShare {
+  sharing_id: string;
+  sensor_id: string;
+  sensor: Sensor;
+  owner: {
+    user_id: string;
+    username: string;
+    email: string;
+  };
 }
 
 const sensorSharingApi = {
@@ -52,7 +64,7 @@ const sensorSharingApi = {
   },
 
   /**
-   * Hole alle Sensoren, die mit dem aktuellen Benutzer geteilt wurden
+   * Hole alle akzeptierten Sensoren, die mit dem aktuellen Benutzer geteilt wurden
    */
   async getSharedWithMe(): Promise<Sensor[]> {
     try {
@@ -72,6 +84,30 @@ const sensorSharingApi = {
       return response.data.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Fehler beim Abrufen der Benutzer');
+    }
+  },
+
+  /**
+   * Hole alle ausstehenden Sensor-Freigaben
+   */
+  async getPendingShares(): Promise<PendingShare[]> {
+    try {
+      const response = await apiClient.get('/sharing/pending');
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Fehler beim Abrufen der ausstehenden Freigaben');
+    }
+  },
+
+  /**
+   * Akzeptiere oder lehne eine Sensor-Freigabe ab
+   */
+  async updateSharingStatus(sharingId: string, status: 'accepted' | 'rejected'): Promise<SensorSharingResponse> {
+    try {
+      const response = await apiClient.put(`/sharing/${sharingId}/status`, { status });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Fehler beim Aktualisieren der Freigabe');
     }
   }
 };
