@@ -18,7 +18,11 @@ const SensorCardList = ({ sensors, onEdit, onDelete }: SensorCardListProps) => {
   const [sharingDialogOpen, setSharingDialogOpen] = useState(false);
   const [selectedSensor, setSelectedSensor] = useState<Sensor | null>(null);
   
+  // Effekt für das stufenweise Laden der Sensoren
   useEffect(() => {
+    // Timeout-IDs für die Cleanup-Funktion speichern
+    const timeouts: NodeJS.Timeout[] = [];
+    
     // Reset when the sensors list changes
     setVisibleSensors([]);
     
@@ -30,10 +34,24 @@ const SensorCardList = ({ sensors, onEdit, onDelete }: SensorCardListProps) => {
       const batchIndex = Math.floor(index / batchSize);
       const delay = batchIndex * delayBetweenBatches;
       
-      setTimeout(() => {
-        setVisibleSensors(prev => [...prev, sensor]);
+      const timeout = setTimeout(() => {
+        setVisibleSensors(prev => {
+          // Überprüfen ob der Sensor bereits angezeigt wird
+          if (prev.some(s => s.sensor_id === sensor.sensor_id)) {
+            return prev;
+          }
+          return [...prev, sensor];
+        });
       }, delay);
+      
+      timeouts.push(timeout);
     });
+
+    // Cleanup function
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+      setVisibleSensors([]); // Reset beim Unmount
+    };
   }, [sensors]);
   
   const handleShare = (sensor: Sensor) => {
@@ -61,7 +79,7 @@ const SensorCardList = ({ sensors, onEdit, onDelete }: SensorCardListProps) => {
           </div>
         )}
       </div>
-      
+
       {/* SensorSharingDialog */}
       {selectedSensor && (
         <SensorSharingDialog
