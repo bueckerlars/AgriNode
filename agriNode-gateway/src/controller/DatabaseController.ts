@@ -243,6 +243,15 @@ export class DatabaseController {
     return this.findById<ApiKey>('ApiKey', id);
   }
 
+  public async findApiKeyByKey(key: string): Promise<ApiKey | null> {
+    try {
+      return await this.findOne<ApiKey>('ApiKey', { where: { key } });
+    } catch (error) {
+      logger.error(`Error in DatabaseController.findApiKeyByKey: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
   public async deleteApiKey(where: WhereOptions): Promise<number> {
     return this.delete('ApiKey', where);
   }
