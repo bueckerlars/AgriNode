@@ -148,7 +148,7 @@ const SensorCard = ({ sensor, onEdit, onDelete, onShare }: SensorCardProps) => {
         const percentage = Math.round(((MAX_VALUE - boundedValue) / range) * 100);
         return `${percentage}%`;
       case 'brightness':
-        return `${value.toFixed(0)}`;
+        return `${value.toFixed(0)} lx`;
       default:
         return `${value}`;
     }

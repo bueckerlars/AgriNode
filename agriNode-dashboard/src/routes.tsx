@@ -7,6 +7,7 @@ import { Profile } from "@/pages/Profile";
 import { Register } from "@/pages/Register";
 import SensorDetail from "@/pages/SensorDetail";
 import { Settings } from "@/pages/Settings";
+import { Analysis } from "@/pages/Analysis";
 import { Outlet } from "react-router-dom";
 
 const routes = [
@@ -23,6 +24,14 @@ const routes = [
                 element: (
                     <ProtectedRoute>
                         <Dashboard />
+                    </ProtectedRoute>
+                )
+            },
+            {
+                path: "analysis",
+                element: (
+                    <ProtectedRoute>
+                        <Analysis />
                     </ProtectedRoute>
                 )
             },

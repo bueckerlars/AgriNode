@@ -79,7 +79,10 @@ export function AppSidebar() {
               </SidebarMenuItem>
               
               <SidebarMenuItem>
-                <SidebarMenuButton>
+                <SidebarMenuButton
+                  className={isActive("/analysis") ? "bg-sidebar-primary text-white" : ""}
+                  onClick={() => navigate("/analysis")}
+                >
                   <BarChart />
                   <span>Analysen</span>
                 </SidebarMenuButton>
