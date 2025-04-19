@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull, Share2 } from "lucide-react";
+import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull, Share2, BarChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Sensor, SensorReadingsByType, SensorDataPoint } from "@/types/sensor";
@@ -213,7 +213,14 @@ const SensorCard = ({ sensor, onEdit, onDelete, onShare }: SensorCardProps) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation(); // Verhindert, dass der Klick auf das Menüitem auch die Karte auslöst
+                e.stopPropagation();
+                navigate(`/analysis?sensorId=${sensor.sensor_id}`);
+              }}>
+                <BarChart className="h-4 w-4 mr-2" />
+                Analyse anzeigen
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
                 navigate(`/sensors/${sensor.sensor_id}`);
               }}>
                 Details anzeigen

@@ -14,7 +14,8 @@ import {
   BatteryMedium,
   BatteryFull,
   Calendar,
-  Share2
+  Share2,
+  BarChart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -430,6 +431,14 @@ const SensorDetail = () => {
               {/* Nur Sensor-Eigentümer können teilen oder bearbeiten */}
               {sensor.user_id === (user?.user_id || '') && (
                 <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate(`/analysis?sensorId=${sensor.sensor_id}`)}
+                  >
+                    <BarChart className="h-4 w-4 mr-2" />
+                    Analyse
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 

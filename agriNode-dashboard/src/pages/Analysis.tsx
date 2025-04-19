@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sensor, SensorData } from "@/types/api";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useSensorData } from "@/contexts/SensorDataContext";
+import { useSearchParams } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { SensorPredictions } from "@/components/SensorPredictions";
 
@@ -44,6 +45,7 @@ interface DailyData {
 export const Analysis = () => {
   const { sensors } = useSensors();
   const { getSensorDataByTimeRange } = useSensorData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSensor, setSelectedSensor] = useState<string>("");
   const [timeRange, setTimeRange] = useState<string>("7d");
   const [aggregatedData, setAggregatedData] = useState<AggregatedData | null>(null);
@@ -61,6 +63,23 @@ export const Analysis = () => {
     { value: "30d", label: "Letzter Monat" },
     { value: "90d", label: "Letzte 3 Monate" }
   ];
+
+  // URL-Parameter beim Laden der Komponente verarbeiten
+  useEffect(() => {
+    const sensorId = searchParams.get("sensorId");
+    if (sensorId && sensors.some(s => s.sensor_id === sensorId)) {
+      setSelectedSensor(sensorId);
+    }
+  }, [searchParams, sensors]);
+
+  // Aktualisiere die URL wenn sich der ausgewählte Sensor ändert
+  useEffect(() => {
+    if (selectedSensor) {
+      setSearchParams({ sensorId: selectedSensor });
+    } else {
+      setSearchParams({});
+    }
+  }, [selectedSensor, setSearchParams]);
 
   useEffect(() => {
     if (selectedSensor && timeRange) {
