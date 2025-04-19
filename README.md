@@ -20,6 +20,7 @@ AgriNode is an open-source project that realizes a cost-effective and energy-eff
 8. [Note on Nutrient Measurement](#note-on-nutrient-measurement)
 9. [Learning from Existing Projects](#learning-from-existing-projects)
 10. [API Documentation](#api-documentation)
+11. [Homeassistant Integration](#homeassistant-integration)
 12. [Contributing](#contributing)
 13. [License](#license)
 
@@ -84,6 +85,10 @@ The AgriNode project is designed for energy-efficient operation to ensure a long
 * **Battery Selection:** Choosing a suitable LiPo or 18650 battery with sufficient capacity is crucial.
 * **Battery Management:** Using a BMS module protects the battery from damage and enables safe charging.
 * **Solar Integration (Optional):** A small solar module can be used in conjunction with a solar charge controller to charge the battery and extend operating time.
+
+## Homeassistant Integration
+
+Für die Integration in Homeassistant, besuchen Sie das [AgriNode Homeassistant Repository](https://github.com/bueckerlars/AgriNode-Homeassistant-Integration).
 
 ## API Documentation
 
