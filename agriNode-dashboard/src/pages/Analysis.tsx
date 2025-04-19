@@ -201,38 +201,51 @@ export const Analysis = () => {
     measurementType: MeasurementKey,
     title: string,
     unit: string
-  ) => (
-    <div className="h-[300px]">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis unit={unit} />
-          <Tooltip 
-            formatter={(value: number, name: string) => {
-              const sensorId = name.split('_')[1];
-              return [`${value.toFixed(1)}${unit}`, getSensorName(sensorId)];
-            }}
-          />
-          <Legend formatter={(value) => {
-            const sensorId = value.split('_')[1];
-            return getSensorName(sensorId);
-          }} />
-          {selectedSensors.map((sensorId, index) => (
-            <Line
-              key={sensorId}
-              type="monotone"
-              dataKey={`${measurementType}_${sensorId}`}
-              name={`${measurementType}_${sensorId}`}
-              stroke={MEASUREMENTS[index % MEASUREMENTS.length].color}
-              dot={false}
-              connectNulls
+  ) => {
+    // Berechne Start- und Enddatum basierend auf dem timeRange
+    const endDate = new Date();
+    const days = parseInt(timeRange);
+    const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
+
+    return (
+      <div className="h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="date" 
+              domain={[startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]}
+              type="category"
+              tickFormatter={(value) => new Date(value).toLocaleDateString()}
             />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
+            <YAxis unit={unit} />
+            <Tooltip 
+              formatter={(value: number, name: string) => {
+                const sensorId = name.split('_')[1];
+                return [`${value.toFixed(1)}${unit}`, getSensorName(sensorId)];
+              }}
+              labelFormatter={(label) => new Date(label).toLocaleDateString()}
+            />
+            <Legend formatter={(value) => {
+              const sensorId = value.split('_')[1];
+              return getSensorName(sensorId);
+            }} />
+            {selectedSensors.map((sensorId, index) => (
+              <Line
+                key={sensorId}
+                type="monotone"
+                dataKey={`${measurementType}_${sensorId}`}
+                name={`${measurementType}_${sensorId}`}
+                stroke={MEASUREMENTS[index % MEASUREMENTS.length].color}
+                dot={false}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -367,7 +380,15 @@ export const Analysis = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={dailyData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
+                      <XAxis 
+                        dataKey="date" 
+                        domain={[
+                          new Date(new Date().getTime() - parseInt(timeRange) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                          new Date().toISOString().split('T')[0]
+                        ]}
+                        type="category"
+                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      />
                       <YAxis />
                       <Tooltip 
                         formatter={(value: number, name: string) => {
@@ -375,6 +396,7 @@ export const Analysis = () => {
                           const measurement = MEASUREMENTS.find(m => m.key === type);
                           return [`${value.toFixed(1)}${measurement?.unit || ''}`, getSensorName(sensorId)];
                         }}
+                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
                       />
                       <Legend 
                         formatter={(value) => {
