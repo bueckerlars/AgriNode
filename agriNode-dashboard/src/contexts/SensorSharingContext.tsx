@@ -18,6 +18,7 @@ interface SensorSharingContextType {
   fetchPendingShares: () => Promise<void>;
   acceptShare: (sharingId: string) => Promise<void>;
   rejectShare: (sharingId: string) => Promise<void>;
+  removeShare: (sensorId: string) => Promise<void>;
 }
 
 const SensorSharingContext = createContext<SensorSharingContextType | undefined>(undefined);
@@ -202,6 +203,24 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const removeShare = async (sensorId: string): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      await sensorSharingApi.removeShare(sensorId);
+      toast.success('Sensor-Freigabe wurde entfernt');
+      
+      // Update shared sensors list
+      setSharedWithMe(prev => prev.filter(sensor => sensor.sensor_id !== sensorId));
+    } catch (error: any) {
+      console.error('Fehler beim Entfernen der Freigabe:', error);
+      setError('Fehler beim Entfernen der Freigabe');
+      toast.error('Fehler beim Entfernen der Freigabe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     sharedWithMe,
     sharedUsers,
@@ -215,7 +234,8 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
     fetchSharedWithMe,
     fetchPendingShares,
     acceptShare,
-    rejectShare
+    rejectShare,
+    removeShare,
   };
 
   return (

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull, Share2, BarChart } from "lucide-react";
+import { MoreVertical, Thermometer, Droplet, Sun, Flower, Battery, BatteryLow, BatteryMedium, BatteryFull, Share2, BarChart, Ban } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Sensor, SensorReadingsByType, SensorDataPoint } from "@/types/sensor";
@@ -10,6 +10,8 @@ import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { useSensorData } from "@/contexts/SensorDataContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSensorSharing } from "@/contexts/SensorSharingContext";
+import { toast } from "sonner";
 
 interface SensorCardProps {
   sensor: Sensor;
@@ -33,6 +35,19 @@ const SensorCard = ({ sensor, onEdit, onDelete, onShare }: SensorCardProps) => {
   
   // Überprüfen, ob der aktuelle Benutzer der Besitzer des Sensors ist
   const isOwner = user?.user_id === sensor.user_id;
+
+  const { removeShare } = useSensorSharing();
+
+  const handleRemoveShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await removeShare(sensor.sensor_id);
+      toast.success("Freigabe erfolgreich entfernt");
+    } catch (error) {
+      console.error("Fehler beim Entfernen der Freigabe:", error);
+      toast.error("Fehler beim Entfernen der Freigabe");
+    }
+  };
   
   useEffect(() => {
     const fetchSensorData = async () => {
@@ -225,6 +240,17 @@ const SensorCard = ({ sensor, onEdit, onDelete, onShare }: SensorCardProps) => {
               }}>
                 Details anzeigen
               </DropdownMenuItem>
+              
+              {/* Für geteilte Sensoren (nicht-Eigentümer) */}
+              {!isOwner && (
+                <DropdownMenuItem 
+                  className="text-red-600"
+                  onClick={handleRemoveShare}
+                >
+                  <Ban className="h-4 w-4 mr-2" />
+                  Freigabe entfernen
+                </DropdownMenuItem>
+              )}
               
               {/* Nur anzeigen, wenn der aktuelle Benutzer der Besitzer ist */}
               {isOwner && (

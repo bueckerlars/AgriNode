@@ -82,6 +82,74 @@ router.get('/shared-with-me', SensorSharingController.getSharedSensors);
 
 /**
  * @swagger
+ * /api/sharing/pending:
+ *   get:
+ *     summary: Ausstehende Sensor-Freigaben abrufen
+ *     tags: [SensorSharing]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste der ausstehenden Freigaben
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SensorSharing'
+ *       401:
+ *         description: Nicht autorisiert
+ *       500:
+ *         description: Serverfehler
+ */
+router.get('/pending', SensorSharingController.getPendingShares);
+
+/**
+ * @swagger
+ * /api/sharing/{sensorId}/remove-share:
+ *   delete:
+ *     summary: Eine Freigabe für einen Sensor als Empfänger entfernen
+ *     tags: [SensorSharing]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sensorId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID des Sensors, dessen Freigabe entfernt werden soll
+ *     responses:
+ *       200:
+ *         description: Freigabe erfolgreich entfernt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Sensor-Freigabe wurde erfolgreich entfernt
+ *       401:
+ *         description: Nicht autorisiert
+ *       404:
+ *         description: Keine aktive Freigabe gefunden
+ *       500:
+ *         description: Serverfehler
+ */
+router.delete('/:sensorId/remove-share', SensorSharingController.removeShare);
+
+/**
+ * @swagger
  * /api/sharing/{sensorId}:
  *   post:
  *     summary: Einen Sensor mit einem anderen Benutzer teilen
@@ -271,36 +339,6 @@ router.delete('/:sensorId/:sharedUserId', SensorSharingController.unshareSensor)
  *         description: Serverfehler
  */
 router.delete('/:sensorId', SensorSharingController.removeAllSharings);
-
-/**
- * @swagger
- * /api/sharing/pending:
- *   get:
- *     summary: Ausstehende Sensor-Freigaben abrufen
- *     tags: [SensorSharing]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Liste der ausstehenden Freigaben
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/SensorSharing'
- *       401:
- *         description: Nicht autorisiert
- *       500:
- *         description: Serverfehler
- */
-router.get('/pending', SensorSharingController.getPendingShares);
 
 /**
  * @swagger

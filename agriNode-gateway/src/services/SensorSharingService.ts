@@ -342,6 +342,45 @@ class SensorSharingService {
       throw error;
     }
   }
+
+  /**
+   * Entfernt eine spezifische Freigabe für einen Sensor für den aktuellen Benutzer
+   */
+  async removeShare(sensorId: string, userId: string): Promise<boolean> {
+    try {
+      logger.info(`Removing share for sensor ${sensorId} by user ${userId}`);
+      
+      // Finde die Freigabe
+      const sharing = await databaseController.findOneSensorSharing({
+        where: {
+          sensor_id: sensorId,
+          shared_with_id: userId,
+          status: 'accepted'
+        }
+      });
+      
+      if (!sharing) {
+        logger.warn(`No active sharing found for sensor ${sensorId} and user ${userId}`);
+        throw new Error('Keine aktive Freigabe gefunden');
+      }
+      
+      // Lösche die Freigabe
+      const deleteCount = await databaseController.deleteSensorSharing({
+        sensor_id: sensorId,
+        shared_with_id: userId
+      });
+      
+      if (deleteCount === 0) {
+        throw new Error('Fehler beim Entfernen der Freigabe');
+      }
+      
+      logger.info(`Successfully removed share for sensor ${sensorId} by user ${userId}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error in SensorSharingService.removeShare: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
 }
 
 // Singleton-Instanz erstellen

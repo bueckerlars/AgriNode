@@ -109,6 +109,18 @@ const sensorSharingApi = {
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Fehler beim Aktualisieren der Freigabe');
     }
+  },
+
+  /**
+   * Entferne eine spezifische Freigabe für einen Sensor
+   */
+  async removeShare(sensorId: string): Promise<SensorSharingResponse> {
+    try {
+      const response = await apiClient.delete(`/sharing/${sensorId}/remove-share`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Fehler beim Entfernen der Freigabe');
+    }
   }
 };
 

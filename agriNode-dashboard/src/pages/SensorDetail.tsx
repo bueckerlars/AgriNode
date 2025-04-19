@@ -15,7 +15,8 @@ import {
   BatteryFull,
   Calendar,
   Share2,
-  BarChart
+  BarChart,
+  Ban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +60,7 @@ const SensorDetail = () => {
   
   const { getSensorById, updateSensor, deleteSensor, fetchSensors, sensors, loading: sensorsLoading } = useSensors();
   const { getSensorDataBySensorId, getSensorDataByTimeRange } = useSensorData();
+  const { removeShare } = useSensorSharing();
   
   const [sensor, setSensor] = useState<Sensor | null>(null);
   const [sensorData, setSensorData] = useState<SensorReadingsByType | null>(null);
@@ -353,6 +355,17 @@ const SensorDetail = () => {
     }
   };
 
+  const handleRemoveShare = async () => {
+    try {
+      await removeShare(sensor.sensor_id);
+      toast.success("Freigabe erfolgreich entfernt");
+      navigate('/');
+    } catch (error) {
+      console.error("Fehler beim Entfernen der Freigabe:", error);
+      toast.error("Fehler beim Entfernen der Freigabe");
+    }
+  };
+
   const getBatteryIcon = () => {
     const level = sensor?.batteryLevel ?? 0;
     
@@ -408,6 +421,8 @@ const SensorDetail = () => {
     );
   }
   
+  const isOwner = sensor.user_id === (user?.user_id || '');
+
   return (
     <div className="min-h-screen flex w-full">
       <div className="flex-1 p-6 md:p-8 overflow-y-auto">
@@ -428,8 +443,21 @@ const SensorDetail = () => {
             </div>
             
             <div className="flex space-x-2">
+              {/* Für geteilte Sensoren */}
+              {!isOwner && (
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={handleRemoveShare}
+                >
+                  <Ban className="h-4 w-4 mr-2" />
+                  Freigabe entfernen
+                </Button>
+              )}
+              
               {/* Nur Sensor-Eigentümer können teilen oder bearbeiten */}
-              {sensor.user_id === (user?.user_id || '') && (
+              {isOwner && (
                 <>
                   <Button 
                     variant="outline" 

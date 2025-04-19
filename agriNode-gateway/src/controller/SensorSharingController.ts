@@ -260,6 +260,55 @@ class SensorSharingController {
     }
 
     /**
+     * Entfernt die Freigabe eines Sensors für den aktuellen Benutzer
+     */
+    async removeShare(req: Request, res: Response): Promise<void> {
+        try {
+            if (!req.user) {
+                res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication required' 
+                });
+                return;
+            }
+            
+            const userId = req.user.id;
+            const { sensorId } = req.params;
+            
+            if (!sensorId) {
+                res.status(400).json({ 
+                    success: false, 
+                    message: 'Sensor-ID ist erforderlich' 
+                });
+                return;
+            }
+            
+            await sensorSharingService.removeShare(sensorId, userId);
+            
+            res.status(200).json({
+                success: true,
+                message: 'Sensor-Freigabe wurde erfolgreich entfernt'
+            });
+        } catch (error: any) {
+            logger.error(`Fehler in SensorSharingController.removeShare: ${error.message}`);
+            
+            if (error.message.includes('nicht gefunden') || error.message.includes('keine aktive')) {
+                res.status(404).json({ 
+                    success: false, 
+                    message: error.message 
+                });
+                return;
+            }
+            
+            res.status(500).json({ 
+                success: false, 
+                message: 'Fehler beim Entfernen der Freigabe', 
+                error: error.message 
+            });
+        }
+    }
+
+    /**
      * Holt alle Sensoren, die mit dem authentifizierten Benutzer geteilt wurden
      */
     async getSharedSensors(req: Request, res: Response): Promise<void> {
