@@ -110,30 +110,21 @@ export const SensorPredictions = ({ sensorData }: SensorPredictionsProps) => {
     // Helligkeit
     const brightnessValues = last24h.map(d => d.brightness);
     const currentBrightness = brightnessValues[brightnessValues.length - 1];
-    const brightnessTrend = calculateTrend(brightnessValues);
+    const averageBrightness = brightnessValues.reduce((sum, val) => sum + val, 0) / brightnessValues.length;
     
-    let timeUntilCriticalBrightness = null;
-    if (brightnessTrend < 0 && currentBrightness > THRESHOLDS.brightness.criticalLow) {
-      timeUntilCriticalBrightness = 
-        (THRESHOLDS.brightness.criticalLow - currentBrightness) / brightnessTrend;
-    } else if (brightnessTrend > 0 && currentBrightness < THRESHOLDS.brightness.criticalHigh) {
-      timeUntilCriticalBrightness = 
-        (THRESHOLDS.brightness.criticalHigh - currentBrightness) / brightnessTrend;
-    }
-
     predictions.push({
       type: "brightness",
       criticalValue: currentBrightness < THRESHOLDS.brightness.warningLow 
         ? THRESHOLDS.brightness.criticalLow 
         : THRESHOLDS.brightness.criticalHigh,
       currentValue: currentBrightness,
-      trend: brightnessTrend,
-      timeUntilCritical: timeUntilCriticalBrightness,
+      trend: 0, // Wir verwenden keinen Trend mehr
+      timeUntilCritical: null, // Keine zeitliche Vorhersage mehr nötig
       status: 
-        currentBrightness <= THRESHOLDS.brightness.criticalLow || 
-        currentBrightness >= THRESHOLDS.brightness.criticalHigh ? "critical" :
-        currentBrightness <= THRESHOLDS.brightness.warningLow || 
-        currentBrightness >= THRESHOLDS.brightness.warningHigh ? "warning" : "ok"
+        averageBrightness <= THRESHOLDS.brightness.criticalLow || 
+        averageBrightness >= THRESHOLDS.brightness.criticalHigh ? "critical" :
+        averageBrightness <= THRESHOLDS.brightness.warningLow || 
+        averageBrightness >= THRESHOLDS.brightness.warningHigh ? "warning" : "ok"
     });
 
     return predictions;
@@ -144,75 +135,70 @@ export const SensorPredictions = ({ sensorData }: SensorPredictionsProps) => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Prognosen</CardTitle>
-        <CardDescription>Vorhersagen basierend auf den Sensordaten der letzten 24 Stunden</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {predictions.map((prediction) => {
-            let statusColor = "text-green-500";
-            let icon = null;
-            if (prediction.status === "critical") {
-              statusColor = "text-red-500";
-              icon = <AlertTriangle className="h-5 w-5 text-red-500" />;
-            } else if (prediction.status === "warning") {
-              statusColor = "text-yellow-500";
-              icon = <AlertTriangle className="h-5 w-5 text-yellow-500" />;
-            }
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {predictions.map((prediction) => {
+        let statusColor = "text-green-500";
+        let icon = null;
+        if (prediction.status === "critical") {
+          statusColor = "text-red-500";
+          icon = <AlertTriangle className="h-5 w-5 text-red-500" />;
+        } else if (prediction.status === "warning") {
+          statusColor = "text-yellow-500";
+          icon = <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+        }
 
-            return (
-              <div key={prediction.type} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  {icon}
-                  <h3 className="font-medium">
-                    {prediction.type === "soilMoisture" ? "Bodenfeuchtigkeit" : 
+        const title = prediction.type === "soilMoisture" ? "Bodenfeuchtigkeit" : 
                      prediction.type === "temperature" ? "Temperatur" : 
-                     prediction.type === "brightness" ? "Helligkeit" : "Luftfeuchtigkeit"}
-                  </h3>
-                </div>
+                     prediction.type === "brightness" ? "Helligkeit" : "Luftfeuchtigkeit";
 
-                <div className="grid gap-1">
-                  <p className={statusColor}>
-                    Aktueller Wert: {prediction.currentValue.toFixed(1)}
-                    {prediction.type === "temperature" ? "°C" : 
-                     prediction.type === "brightness" ? " lx" : "%"}
-                  </p>
-                  
-                  <p>
-                    Trend: {prediction.trend > 0 ? "+" : ""}
-                    {prediction.trend.toFixed(2)}
-                    {prediction.type === "temperature" ? "°C" : 
-                     prediction.type === "brightness" ? " lx" : "%"} pro Stunde
-                  </p>
+        const unit = prediction.type === "temperature" ? "°C" : 
+                    prediction.type === "brightness" ? " lx" : "%";
 
-                  {prediction.timeUntilCritical !== null && prediction.timeUntilCritical > 0 && (
-                    <p className="text-red-500">
-                      Kritischer Wert wird voraussichtlich in{" "}
-                      {formatDistanceToNow(addHours(new Date(), prediction.timeUntilCritical), {
-                        locale: de,
-                        addSuffix: true
-                      })} erreicht
-                    </p>
-                  )}
+        return (
+          <Card key={prediction.type}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {icon}
+                {title}
+              </CardTitle>
+              <CardDescription>Prognose basierend auf 24h-Daten</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className={statusColor}>
+                Aktueller Wert: {prediction.currentValue.toFixed(1)}{unit}
+              </p>
+              
+              {prediction.trend !== 0 && (
+                <p>
+                  Trend: {prediction.trend > 0 ? "+" : ""}
+                  {prediction.trend.toFixed(2)}{unit} pro Stunde
+                </p>
+              )}
 
-                  {prediction.status === "critical" && (
-                    <p className="text-red-500 font-medium">
-                      Sofortige Aktion erforderlich!
-                    </p>
-                  )}
-                  {prediction.status === "warning" && (
-                    <p className="text-yellow-500">
-                      Beobachtung empfohlen
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+              {prediction.timeUntilCritical !== null && prediction.timeUntilCritical > 0 && (
+                <p className="text-red-500">
+                  Kritischer Wert wird voraussichtlich in{" "}
+                  {formatDistanceToNow(addHours(new Date(), prediction.timeUntilCritical), {
+                    locale: de,
+                    addSuffix: true
+                  })} erreicht
+                </p>
+              )}
+
+              {prediction.status === "critical" && (
+                <p className="text-red-500 font-medium">
+                  Sofortige Aktion erforderlich!
+                </p>
+              )}
+              {prediction.status === "warning" && (
+                <p className="text-yellow-500">
+                  Beobachtung empfohlen
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 };
