@@ -65,7 +65,8 @@ describe('SensorSharingService', () => {
         sharing_id: sharingId,
         sensor_id: sensorId,
         owner_id: ownerId,
-        shared_with_id: sharedWithId
+        shared_with_id: sharedWithId,
+        status: 'pending'
       });
       expect(result).toEqual(sampleSharing);
     });
@@ -213,8 +214,9 @@ describe('SensorSharingService', () => {
       ];
       
       const sharings = [
-        { ...sampleSharing, sensor_id: 'sensor-1' },
-        { ...sampleSharing, sensor_id: 'sensor-2' }
+        { ...sampleSharing, sensor_id: 'sensor-1', status: 'accepted' },
+        { ...sampleSharing, sensor_id: 'sensor-2', status: 'accepted' },
+        { ...sampleSharing, sensor_id: 'sensor-3', status: 'pending' } // This one should be filtered out
       ];
 
       // Mock database calls
@@ -227,7 +229,7 @@ describe('SensorSharingService', () => {
       // Assertions
       expect(databaseController.findSensorSharingsBySharedWith).toHaveBeenCalledWith(sharedWithId);
       expect(databaseController.findAllSensors).toHaveBeenCalledWith({
-        where: { sensor_id: ['sensor-1', 'sensor-2'] }
+        where: { sensor_id: ['sensor-1', 'sensor-2'] } // Only accepted sharings
       });
       expect(result).toEqual(sharedSensors);
       expect(result.length).toBe(2);
