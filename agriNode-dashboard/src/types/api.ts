@@ -45,6 +45,7 @@ export interface ApiKey {
   name: string;
   key: string;
   created_at: string;
+  expiration_date: string | null;
 }
 
 // Auth-Request-Typen
@@ -110,4 +111,9 @@ export interface UpdateUserRequest {
   email?: string;
   role?: 'admin' | 'user';
   active?: boolean;
+}
+
+export interface CreateApiKeyRequest {
+  name: string;
+  expiresIn?: number; // Duration in seconds
 }

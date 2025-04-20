@@ -4,4 +4,5 @@ export interface ApiKey {
   name: string;
   key: string;
   created_at: Date;
+  expiration_date: Date | null;
 }

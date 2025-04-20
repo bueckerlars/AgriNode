@@ -9,7 +9,7 @@ interface ApiKeysContextType {
   loading: boolean;
   error: string | null;
   fetchApiKeys: () => Promise<void>;
-  createApiKey: (name: string) => Promise<void>;
+  createApiKey: (name: string, expiresIn?: number) => Promise<void>;
   deleteApiKey: (id: string) => Promise<void>;
 }
 
@@ -44,10 +44,10 @@ export const ApiKeysProvider: React.FC<ProviderProps> = ({ children }) => {
     }
   };
 
-  const createApiKey = async (name: string) => {
+  const createApiKey = async (name: string, expiresIn?: number) => {
     try {
       setLoading(true);
-      const key = await apiKeyApi.createApiKey(name);
+      const key = await apiKeyApi.createApiKey(name, expiresIn);
       setApiKeys(prev => [...prev, key]);
       toast.success('API-Schlüssel erstellt');
     } catch (err) {

@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { ApiResponse, ApiKey } from '@/types/api';
+import { ApiResponse, ApiKey, CreateApiKeyRequest } from '@/types/api';
 
 const apiKeyApi = {
   getApiKeys: async (): Promise<ApiKey[]> => {
@@ -9,10 +9,10 @@ const apiKeyApi = {
     return response.data.data || [];
   },
 
-  createApiKey: async (name: string): Promise<ApiKey> => {
+  createApiKey: async (name: string, expiresIn?: number): Promise<ApiKey> => {
     const response = await apiClient.post<ApiResponse<ApiKey>>(
       `/api-keys`,
-      { name }
+      { name, expiresIn }
     );
     return response.data.data as ApiKey;
   },

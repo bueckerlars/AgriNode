@@ -20,6 +20,15 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 
+const EXPIRATION_OPTIONS = [
+  { label: 'Nie', value: '0' },
+  { label: '1 Tag', value: '86400' },
+  { label: '7 Tage', value: '604800' },
+  { label: '30 Tage', value: '2592000' },
+  { label: '90 Tage', value: '7776000' },
+  { label: '1 Jahr', value: '31536000' },
+];
+
 export const Settings: React.FC = () => {
   const { apiKeys, loading: apiKeysLoading, error: apiKeysError, fetchApiKeys, createApiKey, deleteApiKey } = useApiKeys();
   const { 
@@ -37,6 +46,7 @@ export const Settings: React.FC = () => {
   const isAdmin = user?.role === 'admin';
 
   const [name, setName] = useState('');
+  const [expiration, setExpiration] = useState('0');
   const [submitting, setSubmitting] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
@@ -104,8 +114,10 @@ export const Settings: React.FC = () => {
     }
     try {
       setSubmitting(true);
-      await createApiKey(name.trim());
+      const expiresIn = parseInt(expiration);
+      await createApiKey(name.trim(), expiresIn > 0 ? expiresIn : undefined);
       setName('');
+      setExpiration('0');
     } catch {
       // Error is already handled in context
     } finally {
@@ -218,16 +230,34 @@ export const Settings: React.FC = () => {
           <h2 className="text-xl font-semibold">Manage API Keys</h2>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="flex items-center space-x-2 mb-4">
-            <Input
-              placeholder="Name for new key"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              disabled={submitting}
-            />
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Creating...' : 'Create'}
-            </Button>
+          <form onSubmit={handleSubmit} className="flex flex-col space-y-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Name for new key"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                disabled={submitting}
+              />
+              <Select
+                value={expiration}
+                onValueChange={setExpiration}
+                disabled={submitting}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select expiration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPIRATION_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Creating...' : 'Create'}
+              </Button>
+            </div>
           </form>
 
           {apiKeysError && <p className="text-red-600 mb-4">{apiKeysError}</p>}
@@ -237,9 +267,10 @@ export const Settings: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-1/4">Name</TableHead>
-                  <TableHead className="w-1/2">Key</TableHead>
-                  <TableHead className="w-1/4">Created at</TableHead>
-                  <TableHead className="w-1/4">Actions</TableHead>
+                  <TableHead className="w-1/3">Key</TableHead>
+                  <TableHead className="w-1/6">Created</TableHead>
+                  <TableHead className="w-1/6">Expires</TableHead>
+                  <TableHead className="w-1/6">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -267,7 +298,10 @@ export const Settings: React.FC = () => {
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell>{new Date(key.created_at).toLocaleString()}</TableCell>
+                    <TableCell>{new Date(key.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {key.expiration_date ? new Date(key.expiration_date).toLocaleDateString() : 'Never'}
+                    </TableCell>
                     <TableCell>
                       <Button variant="destructive" size="sm" onClick={() => handleDelete(key.api_key_id)}>
                         Delete

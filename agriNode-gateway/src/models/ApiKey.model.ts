@@ -9,6 +9,7 @@ class ApiKey extends Model<ApiKeyType, ApiKeyCreationAttributes> implements ApiK
   public name!: string;
   public key!: string;
   public created_at!: Date;
+  public expiration_date!: Date | null;
 
   static associate(models: any) {
     ApiKey.belongsTo(models.User, { foreignKey: 'user_id' });
@@ -21,8 +22,13 @@ export default (sequelize: Sequelize) => {
       api_key_id: { type: DataTypes.STRING, primaryKey: true },
       user_id: { type: DataTypes.STRING, allowNull: false },
       name: { type: DataTypes.STRING, allowNull: false },
-      key: { type: DataTypes.STRING, allowNull: false, unique: true },
-      created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+      key: { 
+        type: DataTypes.TEXT, 
+        allowNull: false, 
+        unique: true 
+      },
+      created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+      expiration_date: { type: DataTypes.DATE, allowNull: true }
     },
     {
       sequelize,
