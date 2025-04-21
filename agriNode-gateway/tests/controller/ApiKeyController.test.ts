@@ -122,14 +122,18 @@ describe('ApiKeyController', () => {
       await ApiKeyController.create(req as any, res as any);
       
       // Assert
-      expect(databaseController.createApiKey).toHaveBeenCalledWith({
+      expect(databaseController.createApiKey).toHaveBeenCalledWith(expect.objectContaining({
         api_key_id: 'test-uuid',
         user_id: testUser.id,
         name: 'New API Key',
-        key: 'test-uuid'
-      });
+        expiration_date: null
+      }));
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith({ data: testApiKey });
+      expect(res.json).toHaveBeenCalledWith({
+        data: testApiKey,
+        success: true,
+        message: 'API key created successfully'
+      });
     });
     
     it('should validate required fields for API key creation', async () => {

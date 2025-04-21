@@ -107,9 +107,7 @@ describe('SensorService', () => {
 
       // Assertions
       expect(databaseController.findSensorById).toHaveBeenCalledWith(sensorId);
-      expect(databaseController.deleteSensor).toHaveBeenCalledWith({
-        where: { sensor_id: sensorId }
-      });
+      expect(databaseController.deleteSensor).toHaveBeenCalledWith({ sensor_id: sensorId });
       expect(result).toBe(true);
     });
 

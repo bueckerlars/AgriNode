@@ -218,37 +218,55 @@ describe('AuthService', () => {
   // Additional test for refresh token functionality
   describe('refreshAccessToken', () => {
     it('should refresh access token successfully', async () => {
-      // Setup a token in the refreshTokens Map (this is private, so we're testing indirectly)
-      // First generate a refresh token
-      (jwt.sign as jest.Mock).mockReturnValue('access-token');
-      (databaseController.findUserById as jest.Mock).mockResolvedValue(testUser);
-
-      // We'll need to actually call the login method to set up the refresh token
-      // since the refreshTokens map is private
+      // First login to set up a valid refresh token
       (databaseController.findUserByEmail as jest.Mock).mockResolvedValue(testUserWithPassword);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       (jwt.sign as jest.Mock)
         .mockReturnValueOnce('access-token')
-        .mockReturnValueOnce('refresh-token');
+        .mockReturnValueOnce('valid-refresh-token')
+        .mockReturnValue('new-access-token');
 
-      // Call login to set up refresh token
-      const loginResult = await AuthService.login('test@example.com', 'password');
-      const refreshToken = loginResult.refreshToken;
+      const { refreshToken } = await AuthService.login('test@example.com', 'password');
 
       // Reset mocks for the refresh token test
       jest.clearAllMocks();
-      (jwt.sign as jest.Mock).mockReturnValue('new-access-token');
+
+      // Mock jwt.verify to return valid decoded token
+      const mockDecodedToken = {
+        sub: testUser.id,
+        userId: testUser.id,
+        email: testUser.email,
+        type: 'refresh'
+      };
+      (jwt.verify as jest.Mock).mockReturnValue(mockDecodedToken);
+
+      // Mock user lookup
       (databaseController.findUserById as jest.Mock).mockResolvedValue(testUser);
 
       // Call the refresh token method
       const result = await AuthService.refreshAccessToken(refreshToken);
 
       // Assertions
+      expect(jwt.verify).toHaveBeenCalled();
+      expect(databaseController.findUserById).toHaveBeenCalledWith(testUser.id);
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: testUser.id,
+          email: testUser.email,
+          role: testUser.role
+        }),
+        expect.any(String),
+        expect.objectContaining({ expiresIn: expect.any(String) })
+      );
       expect(result).toEqual({ accessToken: 'new-access-token' });
-      expect(databaseController.findUserById).toHaveBeenCalledWith(testUser.user_id);
     });
 
     it('should throw error for invalid refresh token', async () => {
+      // Mock jwt.verify to throw an error
+      (jwt.verify as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid token');
+      });
+
       // Call with invalid token
       await expect(
         AuthService.refreshAccessToken('invalid-refresh-token')

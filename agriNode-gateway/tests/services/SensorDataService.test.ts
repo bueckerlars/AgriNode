@@ -65,7 +65,7 @@ describe('SensorDataService', () => {
         brightness: 850,
         battery_level: 85
       }));
-      expect(sensorService.updateSensorStatus).toHaveBeenCalledWith(sensorId, 85);
+      expect(sensorService.updateSensorStatus).toHaveBeenCalledWith(sensorId, 85, undefined);
       expect(result).toEqual(sampleSensorData);
     });
 
@@ -115,7 +115,7 @@ describe('SensorDataService', () => {
       });
 
       // Should call updateSensorStatus without battery level
-      expect(sensorService.updateSensorStatus).toHaveBeenCalledWith(sensorId, undefined);
+      expect(sensorService.updateSensorStatus).toHaveBeenCalledWith(sensorId, undefined, undefined);
     });
   });
 

@@ -32,17 +32,17 @@
 #include <ArduinoJson.h>
 
 // Current firmware version
-const char* FIRMWARE_VERSION = "1.0.4";
+const char* FIRMWARE_VERSION = "0.3.0";
 
 // WiFi credentials
 const char* WIFI_SSID = "Connecto Patronum";
 const char* WIFI_PASSWORD = "!Kl3pp3rg4sse3EG!";
 
 // API configuration
-const char* API_BASE_URL = "http://192.168.178.95:5066/api";
+const char* API_BASE_URL = "http://api.agrinode.carvin.duckdns.org/api";
 const char* FIRMWARE_ENDPOINT = "/firmware";
 const char* SENSOR_DATA_ENDPOINT = "/sensor-data";
-const char* API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZjI2NGJjMC00YWYyLTQ0M2UtOGU2NC01Mzg2OTY3OWI4MTUiLCJ1c2VySWQiOiJiNjE4YmU2Ny0zY2Q4LTQ5YjgtOWQ0MS01Y2MxNGZmNDM2ZTgiLCJ0eXBlIjoiYXBpa2V5IiwiaWF0IjoxNzQ1MjM5MTYzLCJleHAiOjQ5MDA5OTkxNjN9.HZ6MfePH3vNKEZQgsiksmN-CeXyV3KeB_uJ8Fj2SzsY"; // API key for authentication>";
+const char* API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkODc0NWFjOS0xYjRlLTQyOWMtOTJhYy1hYzg4N2I1ZTc4YWYiLCJ1c2VySWQiOiJiZmJiYjA4Zi02ZTcyLTQwYzMtOWIzZC1hOGE0MjMyYWI5ZDQiLCJ0eXBlIjoiYXBpa2V5IiwiaWF0IjoxNzQ1MjY1OTMxLCJleHAiOjQ5MDEwMjU5MzF9.i_UDYx01G6wn1Bn2yOtfdZgOuHLX4qYPnerdz361lJY"; // API key for authentication>";
 const char* SENSOR_ID = "SENSOR_1"; // Unique identifier for this sensor node
 
 // Sleep time in seconds (15 minutes = 900 seconds)
