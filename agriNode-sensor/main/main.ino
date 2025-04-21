@@ -6,14 +6,20 @@
  * - BME280 sensor (temperature, humidity, pressure)
  * - BH1750 light sensor
  * - Soil moisture sensor
+ * - INA219 current/voltage sensor (for battery monitoring)
+ * - Battery Shield with TP4056
  * 
  * Connections:
  * - BME280: SDA=D2, SCL=D1
  * - BH1750: SDA=D2, SCL=D1, ADDR=D3
  * - Moisture Sensor: A0
+ * - INA219: SDA=D2, SCL=D1
+ *          Vin+ to Battery Shield 3V output
+ *          Vin- to WEMOS GND
  * 
  * Features:
- * - Read sensor data
+ * - Read sensor data (temperature, humidity, pressure, light, soil moisture)
+ * - Monitor regulated 3V output voltage from Battery Shield
  * - Send data to agriNode-Gateway
  * - Use deep sleep for power efficiency
  */
@@ -24,6 +30,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include <BH1750.h>
+#include <Adafruit_INA219.h>
 #include <ArduinoJson.h>
 
 // WiFi credentials
@@ -31,8 +38,8 @@ const char* WIFI_SSID = "Connecto Patronum";
 const char* WIFI_PASSWORD = "!Kl3pp3rg4sse3EG!";
 
 // API endpoint
-const char* API_ENDPOINT = "http://192.168.178.95:5066/api/sensor-data";
-const char* API_KEY = "YOUR_API_KEY"; // If required by your gateway
+const char* API_ENDPOINT = "http://api.agrinode.carvin.duckdns.org/api/sensor-data";
+const char* API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MTdiZTNmZC03MDE1LTRmMmItYTliMC01YmEyZmQ3ZmQ4OTciLCJ1c2VySWQiOiIzMDVmZmQxOC1hMjcwLTQzZWYtYmQxNy1mZTZhNDI0ZTM2MDQiLCJ0eXBlIjoiYXBpa2V5IiwiaWF0IjoxNzQ1MjMxOTI0LCJleHAiOjQ5MDA5OTE5MjR9.Voy3T5o2PzID8pTL1UAG5HAAx75sVbHmbipSh4pCkwY"; // If required by your gateway
 const char* SENSOR_ID = "SENSOR_1"; // Unique identifier for this sensor node
 
 // Sleep time in seconds (15 minutes = 900 seconds)
@@ -49,11 +56,18 @@ const int SCL_PIN = D1;
 // Sensor objects
 Adafruit_BME280 bme;
 BH1750 lightMeter;
+Adafruit_INA219 ina219;
+
+// Battery Shield voltage thresholds (measuring regulated 3V output)
+const float OUTPUT_NOMINAL = 3.0;    // Nominal output voltage
+const float OUTPUT_MIN = 2.7;        // Minimum acceptable voltage
+const float OUTPUT_MAX = 3.3;        // Maximum expected voltage
 
 // Function prototypes
 bool initializeSensors();
 void readSensorData(float &temperature, float &humidity, float &pressure, float &light, int &moisture);
 bool sendDataToGateway(float temperature, float humidity, float pressure, float light, int moisture);
+float getBatteryLevel();
 void goToSleep();
 
 void setup() {
@@ -133,6 +147,16 @@ bool initializeSensors() {
     success = false;
   }
   
+  // Initialize INA219
+  if (!ina219.begin()) {
+    Serial.println("Could not find a valid INA219 sensor, check wiring!");
+    success = false;
+  } else {
+    // Kalibriere den INA219 für präzise 3V Messungen
+    // Verwende die 16V Range mit 400mA für beste Auflösung
+    ina219.setCalibration_16V_400mA();
+  }
+  
   return success;
 }
 
@@ -157,10 +181,46 @@ void readSensorData(float &temperature, float &humidity, float &pressure, float 
   Serial.print("Soil Moisture: "); Serial.println(moisture);
 }
 
+float getBatteryLevel() {
+  float busVoltage = ina219.getBusVoltage_V();
+  float shuntVoltage = ina219.getShuntVoltage_mV() / 1000.0;
+  float outputVoltage = busVoltage + shuntVoltage;
+  float batteryPercentage;
+  
+  // Berechne den Batterieprozentsatz basierend auf der 3V Ausgangsspannung
+  // Wenn die Spannung unter OUTPUT_MIN fällt, deutet das auf eine schwache Batterie hin
+  if (outputVoltage >= OUTPUT_NOMINAL) {
+    batteryPercentage = 100.0;
+  } else if (outputVoltage <= OUTPUT_MIN) {
+    batteryPercentage = 0.0;
+  } else {
+    // Lineare Interpolation zwischen OUTPUT_MIN und OUTPUT_NOMINAL
+    batteryPercentage = (outputVoltage - OUTPUT_MIN) / (OUTPUT_NOMINAL - OUTPUT_MIN) * 100.0;
+  }
+
+  Serial.print("Output Voltage: "); 
+  Serial.print(outputVoltage); 
+  Serial.println(" V");
+  Serial.print("Bus Voltage: "); 
+  Serial.print(busVoltage); 
+  Serial.println(" V");
+  Serial.print("Shunt Voltage: "); 
+  Serial.print(shuntVoltage * 1000); 
+  Serial.println(" mV");
+  Serial.print("Battery Level: "); 
+  Serial.print(batteryPercentage); 
+  Serial.println("%");
+  
+  return batteryPercentage;
+}
+
 bool sendDataToGateway(float temperature, float humidity, float pressure, float light, int moisture) {
   if (WiFi.status() != WL_CONNECTED) {
     return false;
   }
+  
+  // Batterieprozentsatz messen
+  float batteryLevel = getBatteryLevel();
   
   // Create JSON document for the data
   DynamicJsonDocument doc(256);
@@ -170,7 +230,7 @@ bool sendDataToGateway(float temperature, float humidity, float pressure, float 
   //doc["pressure"] = pressure;
   doc["brightness"] = light;
   doc["soil_moisture"] = moisture;
-  doc["battery_level"] = 100; // ToDo: Implement battery level reading
+  doc["battery_level"] = batteryLevel;
   
   // Serialize JSON to string
   String jsonData;
