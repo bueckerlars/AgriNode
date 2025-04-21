@@ -69,7 +69,7 @@ class SensorService {
             
             // Delete the sensor
             const result = await databaseController.deleteSensor({ 
-                where: { sensor_id: sensorId } 
+                sensor_id: sensorId 
             });
             
             logger.info(`Sensor ${sensorId} unregistered successfully`);
