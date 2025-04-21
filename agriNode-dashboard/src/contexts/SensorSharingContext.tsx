@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import sensorSharingApi, { SharedUser, PendingShare, SharingStatus } from '../api/sensorSharingApi';
 import { Sensor } from '@/types/sensor';
 import { useAuth } from './AuthContext';
+import { useSensors } from './SensorsContext'; // Add this line to import useSensors
 import { toast } from 'sonner';
 
 interface SensorSharingContextType {
@@ -33,6 +34,7 @@ export function useSensorSharing() {
 
 export function SensorSharingProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { fetchSensors } = useSensors(); // Add this line to get fetchSensors
   const [sharedWithMe, setSharedWithMe] = useState<Sensor[]>([]);
   const [sharedUsers, setSharedUsers] = useState<Record<string, SharedUser[]>>({});
   const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
@@ -70,7 +72,6 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
       const shares = await sensorSharingApi.getPendingShares();
-      console.log('Pending shares:', shares);
       setPendingShares(shares);
     } catch (error: any) {
       console.error('Fehler beim Abrufen der ausstehenden Freigaben:', error);
@@ -177,6 +178,7 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
       // Remove from pending shares and update shared sensors
       setPendingShares(prev => prev.filter(share => share.sharing_id !== sharingId));
       await fetchSharedWithMe();
+      await fetchSensors(); // Add this line to refresh sensors
     } catch (error: any) {
       console.error('Fehler beim Annehmen der Freigabe:', error);
       setError('Fehler beim Annehmen der Freigabe');
@@ -213,6 +215,7 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
       
       // Update shared sensors list
       setSharedWithMe(prev => prev.filter(sensor => sensor.sensor_id !== sensorId));
+      await fetchSensors(); // Add this line to refresh sensors
     } catch (error: any) {
       console.error('Fehler beim Entfernen der Freigabe:', error);
       setError('Fehler beim Entfernen der Freigabe');

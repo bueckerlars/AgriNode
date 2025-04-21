@@ -97,14 +97,17 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => navigate("/firmware")}
-                >
-                  <Code />
-                  <span>Firmware</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {user?.role === 'admin' && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className={isActive("/firmware") ? "bg-sidebar-primary text-white" : ""}
+                    onClick={() => navigate("/firmware")}
+                  >
+                    <Code />
+                    <span>Firmware</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
             </SidebarMenu>
           </SidebarGroupContent>

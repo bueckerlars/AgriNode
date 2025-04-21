@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSensorSharing } from "@/contexts/SensorSharingContext";
 import { Sensor, SensorRegistrationPayload } from "@/types/sensor";
 import { AlertTriangle, Bell, Leaf, Plus, Search } from "lucide-react";
 import PendingSharesDialog from "@/components/PendingSharesDialog";
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 export const Dashboard = () => {
     const { sensors, fetchSensors, deleteSensor, loading: isLoading } = useSensors();
     const { user } = useAuth();
+    const { pendingShares } = useSensorSharing();
     const [filteredSensors, setFilteredSensors] = useState<Sensor[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -104,9 +106,14 @@ export const Dashboard = () => {
                     </div>
                     
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setIsPendingSharesOpen(true)}>
+                        <Button variant="outline" onClick={() => setIsPendingSharesOpen(true)} className="relative">
                             <Bell className="mr-2 h-4 w-4" />
                             Freigaben
+                            {pendingShares.length > 0 && (
+                                <div className="absolute -top-2 -right-2 h-5 min-w-[20px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center px-1">
+                                    {pendingShares.length}
+                                </div>
+                            )}
                         </Button>
                         <Button onClick={openAddDialog}>
                             <Plus className="mr-2 h-4 w-4" />

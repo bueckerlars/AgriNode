@@ -63,7 +63,7 @@ const routes = [
             {
                 path: "firmware",
                 element: (
-                    <ProtectedRoute>
+                    <ProtectedRoute allowedRoles={['admin']}>
                         <Firmware />
                     </ProtectedRoute>
                 )

@@ -21,7 +21,7 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   const refreshFirmwareList = async () => {
-    if (!user) return;
+    if (!user || user.role !== 'admin') return;
 
     try {
       setIsLoading(true);
@@ -35,6 +35,11 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   };
 
   const uploadFirmware = async (formData: FormData) => {
+    if (!user || user.role !== 'admin') {
+      toast.error('Keine Berechtigung zum Hochladen von Firmware');
+      return;
+    }
+
     try {
       await firmwareApi.uploadFirmware(formData);
       toast.success('Firmware erfolgreich hochgeladen');
@@ -46,6 +51,11 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setActiveFirmware = async (firmwareId: string) => {
+    if (!user || user.role !== 'admin') {
+      toast.error('Keine Berechtigung zum Aktivieren von Firmware');
+      return;
+    }
+
     try {
       await firmwareApi.setActiveFirmware(firmwareId);
       toast.success('Firmware erfolgreich aktiviert');
@@ -57,6 +67,11 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteFirmware = async (firmwareId: string) => {
+    if (!user || user.role !== 'admin') {
+      toast.error('Keine Berechtigung zum Löschen von Firmware');
+      return;
+    }
+
     try {
       await firmwareApi.deleteFirmware(firmwareId);
       toast.success('Firmware erfolgreich gelöscht');
