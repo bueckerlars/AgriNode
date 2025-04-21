@@ -500,42 +500,58 @@ const SensorDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Batteriestand</CardTitle>
+                <CardTitle className="text-sm font-medium">Status</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center">
+                <div className="flex items-center mb-2">
                   {getBatteryIcon()}
                   <span className={`ml-2 font-medium ${getBatteryTextClass()}`}>
                     {sensor.batteryLevel ?? 0}%
                   </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Aktualisiert: {new Date(sensor.updated_at).toLocaleString('de-DE')}
                 </div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Typ</CardTitle>
-              </CardHeader>
-              <CardContent>{sensor.type || "Standard"}</CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">ID</CardTitle>
+                <CardTitle className="text-sm font-medium">Gerät</CardTitle>
               </CardHeader>
               <CardContent>
-                <code className="bg-muted rounded px-1 py-0.5 text-xs">
-                  {sensor.unique_device_id || "Unbekannt"}
-                </code>
+                <div className="mb-2">{sensor.type || "Standard"}</div>
+                {sensor.firmware_version && (
+                  <div className="text-sm text-muted-foreground">
+                    Firmware: v{sensor.firmware_version}
+                  </div>
+                )}
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Letzte Aktualisierung</CardTitle>
+                <CardTitle className="text-sm font-medium">Standort</CardTitle>
               </CardHeader>
               <CardContent>
-                {sensor.updated_at ? new Date(sensor.updated_at).toLocaleString('de-DE') : "Unbekannt"}
+                <div className="mb-2">{sensor.location || "Nicht angegeben"}</div>
+                <div className="text-sm text-muted-foreground">
+                  Registriert: {new Date(sensor.registered_at).toLocaleDateString('de-DE')}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">System</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="font-mono text-xs bg-muted rounded px-1.5 py-0.5 mb-1 break-all">
+                  {sensor.sensor_id}
+                </div>
+                <div className="font-mono text-xs bg-muted rounded px-1.5 py-0.5 break-all">
+                  {sensor.unique_device_id}
+                </div>
               </CardContent>
             </Card>
           </div>

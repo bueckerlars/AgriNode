@@ -32,17 +32,17 @@
 #include <ArduinoJson.h>
 
 // Current firmware version
-const char* FIRMWARE_VERSION = "1.0.1";
+const char* FIRMWARE_VERSION = "1.0.4";
 
 // WiFi credentials
 const char* WIFI_SSID = "Connecto Patronum";
 const char* WIFI_PASSWORD = "!Kl3pp3rg4sse3EG!";
 
 // API configuration
-const char* API_BASE_URL = "http://<your-gateway-url>/api";
+const char* API_BASE_URL = "http://192.168.178.95:5066/api";
 const char* FIRMWARE_ENDPOINT = "/firmware";
 const char* SENSOR_DATA_ENDPOINT = "/sensor-data";
-const char* API_KEY = "<your-api-key>"; // API key for authentication>";
+const char* API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZjI2NGJjMC00YWYyLTQ0M2UtOGU2NC01Mzg2OTY3OWI4MTUiLCJ1c2VySWQiOiJiNjE4YmU2Ny0zY2Q4LTQ5YjgtOWQ0MS01Y2MxNGZmNDM2ZTgiLCJ0eXBlIjoiYXBpa2V5IiwiaWF0IjoxNzQ1MjM5MTYzLCJleHAiOjQ5MDA5OTkxNjN9.HZ6MfePH3vNKEZQgsiksmN-CeXyV3KeB_uJ8Fj2SzsY"; // API key for authentication>";
 const char* SENSOR_ID = "SENSOR_1"; // Unique identifier for this sensor node
 
 // Sleep time in seconds (15 minutes = 900 seconds)
@@ -85,6 +85,7 @@ String updateUrl = "";
 
 void setup() {
   Serial.begin(115200);
+  delay(1000); // Give serial monitor time to connect
   Serial.println("\n\nAgriNode Sensor Node Starting...");
   Serial.print("Current firmware version: ");
   Serial.println(FIRMWARE_VERSION);
@@ -176,9 +177,16 @@ void setup() {
   
   Serial.println("Data sent successfully.");
   
-  // Check for firmware updates
-  Serial.println("Checking for firmware updates...");
-  if (checkForFirmwareUpdate()) {
+  // Debug before checking firmware
+  Serial.println("Starting firmware update check...");
+  delay(1000); // Give some time for serial output
+  
+  // Check for firmware updates with more debug info
+  bool updateAvailable = checkForFirmwareUpdate();
+  Serial.print("Update check result: ");
+  Serial.println(updateAvailable ? "Update available" : "No update needed");
+  
+  if (updateAvailable) {
     Serial.println("Update available, starting update process...");
     enterUpdateMode();
     performUpdate(updateUrl);
@@ -190,6 +198,7 @@ void setup() {
   }
   
   Serial.println("Going to sleep...");
+  delay(1000); // Give time for serial output before sleep
   goToSleep();
 }
 
@@ -303,6 +312,7 @@ bool sendDataToGateway(float temperature, float humidity, float pressure, float 
   doc["soil_moisture"] = moisture;
   doc["brightness"] = light;
   doc["battery_level"] = batteryLevel;
+  doc["firmware_version"] = FIRMWARE_VERSION;  // Add firmware version to payload
   
   // Serialize JSON to string
   String jsonData;

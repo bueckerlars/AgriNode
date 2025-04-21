@@ -12,6 +12,7 @@ class Sensor extends Model<SensorType, SensorCreationAttributes> implements Sens
   public description?: string;
   public unique_device_id!: string;
   public batteryLevel?: number;
+  public firmware_version?: string;
   public registered_at!: Date;
   public updated_at!: Date;
 
@@ -56,6 +57,10 @@ export default (sequelize: Sequelize) => {
         type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 100.0,
+      },
+      firmware_version: {
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       registered_at: {
         type: DataTypes.DATE,

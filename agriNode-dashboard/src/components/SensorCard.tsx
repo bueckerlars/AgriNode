@@ -294,7 +294,15 @@ const SensorCard = ({ sensor, onEdit, onDelete, onShare }: SensorCardProps) => {
             {getBatteryIcon()}
             <span className="ml-1.5">{getBatteryText()}</span>
           </div>
-          <div>{sensor.type}</div>
+          <div className="flex items-center space-x-2">
+            <span>{sensor.type}</span>
+            {sensor.firmware_version && (
+              <>
+                <span>·</span>
+                <span>v{sensor.firmware_version}</span>
+              </>
+            )}
+          </div>
         </div>
         
         <div className="grid grid-cols-3 gap-2">

@@ -7,4 +7,5 @@ export interface SensorData {
     soil_moisture: number;
     brightness: number;
     battery_level: number;
+    firmware_version?: string;
 }

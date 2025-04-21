@@ -25,6 +25,7 @@ export interface Sensor {
   registered_at?: Date;
   updated_at?: Date;
   batteryLevel?: number;
+  firmware_version?: string;
 }
 
 export interface SensorData {

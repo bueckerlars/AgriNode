@@ -184,32 +184,41 @@ class SensorService {
     }
 
     /**
-     * Update sensor battery level and last updated timestamp
+     * Update sensor status (battery level, firmware version and last updated timestamp)
      */
-    async updateSensorStatus(sensorId: string, batteryLevel?: number): Promise<Sensor | null> {
+    async updateSensorStatus(sensorId: string, batteryLevel?: number, firmwareVersion?: string): Promise<Sensor | null> {
         try {
-            logger.info(`Updating sensor status for ID: ${sensorId}`);
+            logger.info(`Updating sensor status for ${sensorId}`);
             
             const updateData: Partial<Sensor> = {
-                updated_at: new Date(),
+                updated_at: new Date()
             };
-            
-            // Only update battery level if provided
+
             if (batteryLevel !== undefined) {
                 updateData.batteryLevel = batteryLevel;
             }
 
-            logger.info(`Updating sensor ${sensorId} with data: ${JSON.stringify(updateData)}`);
-            
-            // Fix: Pass the where condition correctly, not wrapped in a where object
-            await databaseController.updateSensor(
+            if (firmwareVersion !== undefined) {
+                updateData.firmware_version = firmwareVersion;
+            }
+
+            const [updateCount] = await databaseController.updateSensor(
                 updateData,
                 { sensor_id: sensorId }
             );
             
-            return await databaseController.findSensorById(sensorId);
+            if (updateCount === 0) {
+                logger.warn(`No sensor found with ID ${sensorId}`);
+                return null;
+            }
+            
+            // Get updated sensor
+            const updatedSensor = await databaseController.findSensorById(sensorId);
+            logger.info(`Sensor ${sensorId} status updated successfully`);
+            return updatedSensor;
+            
         } catch (error) {
-            logger.error(`Error in SensorService.updateSensorStatus: ${error instanceof Error ? error.message : String(error)}`);
+            logger.error(`Error updating sensor status: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }

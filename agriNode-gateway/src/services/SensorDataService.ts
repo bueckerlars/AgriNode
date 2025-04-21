@@ -31,11 +31,12 @@ class SensorDataService {
       
       const newSensorData = await databaseController.createSensorData(sensorData);
       
-      // Update the sensor's lastUpdated and batteryLevel if available
+      // Update the sensor's lastUpdated, batteryLevel and firmware version if available
       if (newSensorData) {
         await sensorService.updateSensorStatus(
-          sensor.sensor_id, 
-          sensorData.battery_level // Pass battery level if available
+          sensor.sensor_id,
+          sensorData.battery_level,
+          sensorData.firmware_version,
         );
       }
       
