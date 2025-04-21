@@ -6,3 +6,4 @@ export * from './Sensor';
 export * from './SensorData';
 export * from './SensorSharing';
 export * from './User';
+export * from './firmware';

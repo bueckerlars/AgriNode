@@ -2,7 +2,7 @@ import { FindOptions, WhereOptions } from 'sequelize';
 import databaseService from '../services/DatabaseService';
 import logger from '../config/logger';
 import initModels from '../models';
-import { User, Sensor, SensorData, ApiKey, SensorSharing } from '../types';
+import { User, Sensor, SensorData, ApiKey, SensorSharing, Firmware, CreateFirmwareInput } from '../types';
 
 // Initialize models
 const models = initModels(databaseService.getSequelize());
@@ -309,6 +309,35 @@ export class DatabaseController {
 
   public async deleteSensorSharing(where: WhereOptions): Promise<number> {
     return this.delete('SensorSharing', where);
+  }
+
+  // Firmware methods
+  public async createFirmware(data: CreateFirmwareInput): Promise<Firmware | null> {
+    return this.create<Firmware>('Firmware', data);
+  }
+
+  public async findFirmwareById(firmwareId: string): Promise<Firmware | null> {
+    return this.findById<Firmware>('Firmware', firmwareId);
+  }
+
+  public async findOneFirmware(options: FindOptions): Promise<Firmware | null> {
+    return this.findOne<Firmware>('Firmware', options);
+  }
+
+  public async findAllFirmware(): Promise<Firmware[]> {
+    return this.findAll<Firmware>('Firmware');
+  }
+
+  public async updateFirmware(values: Partial<Firmware>, where: WhereOptions): Promise<[number, Firmware[]]> {
+    return this.update<Firmware>('Firmware', values, where);
+  }
+
+  public async updateAllFirmware(values: Partial<Firmware>, where: WhereOptions): Promise<[number, Firmware[]]> {
+    return this.update<Firmware>('Firmware', values, where);
+  }
+
+  public async deleteFirmware(where: WhereOptions): Promise<number> {
+    return this.delete('Firmware', where);
   }
 }
 

@@ -1,4 +1,4 @@
-import { Home, Plus, BarChart, Settings, Leaf, User, LogOut } from "lucide-react";
+import { Home, Plus, BarChart, Settings, Leaf, User, LogOut, Code } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -96,6 +96,16 @@ export function AppSidebar() {
                   <span>Einstellungen</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => navigate("/firmware")}
+                >
+                  <Code />
+                  <span>Firmware</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

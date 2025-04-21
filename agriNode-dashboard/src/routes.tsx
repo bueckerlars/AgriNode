@@ -9,6 +9,7 @@ import SensorDetail from "@/pages/SensorDetail";
 import { Settings } from "@/pages/Settings";
 import { Analysis } from "@/pages/Analysis";
 import { Outlet } from "react-router-dom";
+import Firmware from "./pages/Firmware";
 
 const routes = [
     {
@@ -58,6 +59,14 @@ const routes = [
                         <SensorDetail />
                     </ProtectedRoute>
                 ) 
+            },
+            {
+                path: "firmware",
+                element: (
+                    <ProtectedRoute>
+                        <Firmware />
+                    </ProtectedRoute>
+                )
             },
         ]
     },
