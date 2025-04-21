@@ -1,24 +1,32 @@
 import { apiClient } from './apiClient';
 import { Sensor } from '../types/sensor';
 
+export type SharingStatus = 'pending' | 'accepted' | 'rejected';
+
 export interface SensorSharingResponse {
   success: boolean;
   message?: string;
   data?: any;
 }
 
-export interface SharedUser {
+export interface SensorSharing {
   sharing_id: string;
+  sensor_id: string;
+  owner_id: string;
+  shared_with_id: string;
+  status: SharingStatus;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface SharedUser extends Pick<SensorSharing, 'sharing_id' | 'status'> {
   user_id: string;
   username: string;
   email: string;
-  status: 'pending' | 'accepted' | 'rejected';
 }
 
-export interface PendingShare {
-  sharing_id: string;
-  sensor_id: string;
-  sensor: Sensor;
+export interface PendingShare extends Pick<SensorSharing, 'sharing_id' | 'sensor_id'> {
+  Sensor: Sensor;
   owner: {
     user_id: string;
     username: string;

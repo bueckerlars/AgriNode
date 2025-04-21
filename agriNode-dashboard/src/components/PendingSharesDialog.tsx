@@ -10,20 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useSensorSharing } from "@/contexts/SensorSharingContext";
 import { Badge } from "@/components/ui/badge";
+import { PendingShare } from "@/api/sensorSharingApi";
 
 interface PendingSharesDialogProps {
   isOpen: boolean;
   onClose: () => void;
-}
-
-interface PendingShare {
-  sharing_id: string;
-  sensor: {
-    name: string;
-  } | null;
-  owner: {
-    username: string;
-  } | null;
 }
 
 const PendingSharesDialog = ({ isOpen, onClose }: PendingSharesDialogProps) => {
@@ -61,15 +52,15 @@ const PendingSharesDialog = ({ isOpen, onClose }: PendingSharesDialogProps) => {
               Keine ausstehenden Freigaben vorhanden
             </div>
           ) : (
-            pendingShares.map((share) => (
+            pendingShares.map((share: PendingShare) => (
               <div
                 key={share.sharing_id}
                 className="flex items-center justify-between bg-muted p-3 rounded-lg"
               >
                 <div className="space-y-1">
-                  <div className="font-medium">{share.sensor?.name || 'Unbenannter Sensor'}</div>
+                  <div className="font-medium">{share.Sensor?.name ?? 'Unbenannter Sensor'}</div>
                   <div className="text-sm text-muted-foreground">
-                    Von: {share.owner?.username || 'Unbekannter Benutzer'}
+                    Von: {share.owner?.username ?? 'Unbekannter Benutzer'}
                   </div>
                 </div>
                 <div className="flex gap-2">

@@ -11,6 +11,7 @@ import { useUsers } from "@/contexts/UsersContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sensor } from "@/types/sensor";
 import { Badge } from "@/components/ui/badge";
+import { SharedUser, SharingStatus } from "@/api/sensorSharingApi";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,7 @@ interface SensorSharingDialogProps {
   sensor: Sensor;
 }
 
-const getStatusIcon = (status: string) => {
+const getStatusIcon = (status: SharingStatus) => {
   switch (status) {
     case 'accepted':
       return <Check className="h-4 w-4 text-green-600" />;
@@ -38,7 +39,7 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const getStatusText = (status: string) => {
+const getStatusText = (status: SharingStatus) => {
   switch (status) {
     case 'accepted':
       return 'Akzeptiert';
@@ -51,7 +52,7 @@ const getStatusText = (status: string) => {
   }
 };
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: SharingStatus) => {
   switch (status) {
     case 'accepted':
       return 'bg-green-100 text-green-800';
@@ -127,7 +128,7 @@ const SensorSharingDialog = ({ isOpen, onClose, sensor }: SensorSharingDialogPro
   const availableUsers = users.filter(userItem => {
     // Exclude users who already have access
     const alreadyShared = sharedUsers[sensorId]?.some(
-      sharedUser => sharedUser.user_id === userItem.user_id
+      (sharedUser: SharedUser) => sharedUser.user_id === userItem.user_id
     );
     
     // Exclude current user (sensor owner)
@@ -186,7 +187,7 @@ const SensorSharingDialog = ({ isOpen, onClose, sensor }: SensorSharingDialogPro
                 </div>
               ) : sharedUsers[sensorId]?.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  {sharedUsers[sensorId]?.map((sharedUser) => (
+                  {sharedUsers[sensorId]?.map((sharedUser: SharedUser) => (
                     <div key={sharedUser.user_id} className="flex items-center justify-between bg-muted p-2 rounded-md">
                       <div className="flex items-center gap-2">
                         <span>{sharedUser.username}</span>

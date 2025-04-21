@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { toast } from 'sonner';
-import sensorSharingApi, { SharedUser, PendingShare } from '../api/sensorSharingApi';
+import sensorSharingApi, { SharedUser, PendingShare, SharingStatus } from '../api/sensorSharingApi';
+import { Sensor } from '@/types/sensor';
 import { useAuth } from './AuthContext';
-import { Sensor } from '../types/sensor';
+import { toast } from 'sonner';
 
 interface SensorSharingContextType {
   sharedWithMe: Sensor[];
@@ -70,6 +70,7 @@ export function SensorSharingProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
       const shares = await sensorSharingApi.getPendingShares();
+      console.log('Pending shares:', shares);
       setPendingShares(shares);
     } catch (error: any) {
       console.error('Fehler beim Abrufen der ausstehenden Freigaben:', error);
