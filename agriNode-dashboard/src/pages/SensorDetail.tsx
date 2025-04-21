@@ -462,7 +462,7 @@ const SensorDetail = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => navigate(`/analysis?sensorId=${sensor.sensor_id}`)}
+                    onClick={() => navigate(`/analysis?sensorIds=${sensor.sensor_id}`)}
                   >
                     <BarChart className="h-4 w-4 mr-2" />
                     Analyse

@@ -9,15 +9,27 @@ import { useSensors } from "@/contexts/SensorsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSensorSharing } from "@/contexts/SensorSharingContext";
 import { Sensor, SensorRegistrationPayload } from "@/types/sensor";
-import { AlertTriangle, Bell, Leaf, Plus, Search } from "lucide-react";
+import { AlertTriangle, Bell, Leaf, Plus, Search, Clock, Check, X } from "lucide-react";
 import PendingSharesDialog from "@/components/PendingSharesDialog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export const Dashboard = () => {
-    const { sensors, fetchSensors, deleteSensor, loading: isLoading } = useSensors();
+    const { 
+        sensors, 
+        fetchSensors, 
+        deleteSensor, 
+        loading: isLoading 
+    } = useSensors();
     const { user } = useAuth();
-    const { pendingShares } = useSensorSharing();
+    const { 
+        pendingShares, 
+        fetchPendingShares, 
+        acceptShare, 
+        rejectShare, 
+        loading 
+    } = useSensorSharing();
+
     const [filteredSensors, setFilteredSensors] = useState<Sensor[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -26,6 +38,43 @@ export const Dashboard = () => {
     const [sensorToEdit, setSensorToEdit] = useState<Sensor | undefined>(undefined);
     const [activeTab, setActiveTab] = useState("all");
     const [isPendingSharesOpen, setIsPendingSharesOpen] = useState(false);
+    const [previousSharesCount, setPreviousSharesCount] = useState(0);
+
+    const handleAcceptShare = async (sharingId: string) => {
+        try {
+            await acceptShare(sharingId);
+        } catch (error) {
+            console.error('Fehler beim Akzeptieren der Freigabe:', error);
+            toast.error('Fehler beim Akzeptieren der Freigabe');
+        }
+    };
+
+    const handleRejectShare = async (sharingId: string) => {
+        try {
+            await rejectShare(sharingId);
+        } catch (error) {
+            console.error('Fehler beim Ablehnen der Freigabe:', error);
+            toast.error('Fehler beim Ablehnen der Freigabe');
+        }
+    };
+
+    // Effekt für das regelmäßige Aktualisieren der Freigaben
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchPendingShares();
+        }, 30000); // Alle 30 Sekunden aktualisieren
+
+        return () => clearInterval(interval);
+    }, [fetchPendingShares]);
+
+    // Effekt für die Benachrichtigung bei neuen Freigaben
+    useEffect(() => {
+        if (pendingShares.length > previousSharesCount) {
+            const newSharesCount = pendingShares.length - previousSharesCount;
+            toast.info(`${newSharesCount} neue Sensor-Freigabe${newSharesCount > 1 ? 'n' : ''} verfügbar`);
+        }
+        setPreviousSharesCount(pendingShares.length);
+    }, [pendingShares.length, previousSharesCount]);
 
     // Effekt für das Filtern der Sensoren
     useEffect(() => {
@@ -200,19 +249,66 @@ export const Dashboard = () => {
                                 <div className="text-center py-12">
                                     <p className="text-muted-foreground">Sensoren werden geladen...</p>
                                 </div>
-                            ) : filteredSensors.length > 0 ? (
-                                <SensorCardList
-                                    sensors={filteredSensors}
-                                    onEdit={handleEditSensor}
-                                    onDelete={confirmDeleteSensor}
-                                />
                             ) : (
-                                <div className="text-center py-12">
-                                    <h2 className="text-xl font-medium mb-2">Keine geteilten Sensoren</h2>
-                                    <p className="text-muted-foreground">
-                                        Es wurden keine Sensoren mit Ihnen geteilt.
-                                    </p>
-                                </div>
+                                <>
+                                    {/* Pending Shares Preview */}
+                                    {pendingShares.length > 0 && (
+                                        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                            <h3 className="text-lg font-medium mb-3 flex items-center text-yellow-800">
+                                                <Clock className="mr-2 h-5 w-5" />
+                                                Ausstehende Freigaben
+                                            </h3>
+                                            <div className="space-y-3">
+                                                {pendingShares.map((share) => (
+                                                    <div key={share.sharing_id} className="flex items-center justify-between bg-white p-3 rounded-md shadow-sm">
+                                                        <div className="space-y-1">
+                                                            <div className="font-medium">{share.Sensor?.name ?? 'Unbenannter Sensor'}</div>
+                                                            <div className="text-sm text-muted-foreground">
+                                                                Von: {share.owner?.username ?? 'Unbekannter Benutzer'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleAcceptShare(share.sharing_id)}
+                                                                disabled={loading}
+                                                                className="text-green-600 hover:text-green-700"
+                                                            >
+                                                                <Check className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleRejectShare(share.sharing_id)}
+                                                                disabled={loading}
+                                                                className="text-red-600 hover:text-red-700"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Existing Shared Sensors List */}
+                                    {filteredSensors.length > 0 ? (
+                                        <SensorCardList
+                                            sensors={filteredSensors}
+                                            onEdit={handleEditSensor}
+                                            onDelete={confirmDeleteSensor}
+                                        />
+                                    ) : (
+                                        <div className="text-center py-12">
+                                            <h2 className="text-xl font-medium mb-2">Keine geteilten Sensoren</h2>
+                                            <p className="text-muted-foreground">
+                                                Es wurden keine Sensoren mit Ihnen geteilt.
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </TabsContent>
                     </Tabs>
