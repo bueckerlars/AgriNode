@@ -3,8 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import databaseController from './DatabaseController';
 import logger from '../config/logger';
+import apiKeyService from '../services/ApiKeyService';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; // Should be in environment variables
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 class ApiKeyController {
   /**
@@ -19,12 +20,7 @@ class ApiKeyController {
 
       const userId = req.user.id;
       const keys = await databaseController.findApiKeysByUser(userId);
-      
-      // Filter out expired keys
-      const now = new Date();
-      const validKeys = keys.filter(key => !key.expiration_date || key.expiration_date > now);
-      
-      res.status(200).json({ data: validKeys });
+      res.status(200).json({ data: keys });
     } catch (error: any) {
       logger.error(`Error listing API keys: ${error.message}`);
       res.status(500).json({ message: 'Failed to retrieve API keys' });
@@ -49,39 +45,12 @@ class ApiKeyController {
         return;
       }
 
-      const apiKeyId = uuidv4();
-      
-      // Calculate expiration date if provided
-      let expirationDate: Date | null = null;
-      if (expiresIn) {
-        expirationDate = new Date();
-        expirationDate.setSeconds(expirationDate.getSeconds() + parseInt(expiresIn));
-      }
-
-      // Generate JWT token
-      const payload = {
-        sub: apiKeyId,
-        userId: userId,
-        type: 'apikey'
-      };
-
-      const key = jwt.sign(payload, JWT_SECRET, {
-        expiresIn: expiresIn || '100y' // Default to 100 years if no expiration provided
+      const newKey = await apiKeyService.createApiKey(userId, name, expiresIn);
+      res.status(201).json({
+        success: true,
+        message: 'API key created successfully',
+        data: newKey
       });
-
-      const newKey = await databaseController.createApiKey({
-        api_key_id: apiKeyId,
-        user_id: userId,
-        name,
-        key,
-        expiration_date: expirationDate
-      });
-
-      if (!newKey) {
-        throw new Error('Creation failed');
-      }
-
-      res.status(201).json({ data: newKey });
     } catch (error: any) {
       logger.error(`Error creating API key: ${error.message}`);
       res.status(500).json({ message: 'Failed to create API key' });
@@ -97,17 +66,18 @@ class ApiKeyController {
         res.status(401).json({ message: 'Authentication required' });
         return;
       }
-      
+
       const userId = req.user.id;
-      const { id } = req.params;
-      
-      const key = await databaseController.findApiKeyById(id);
+      const keyId = req.params.id;
+
+      // First check if the key exists and belongs to the user
+      const key = await apiKeyService.findApiKeyById(keyId);
       if (!key || key.user_id !== userId) {
         res.status(404).json({ message: 'API key not found' });
         return;
       }
 
-      await databaseController.deleteApiKey({ api_key_id: id });
+      await apiKeyService.deleteApiKey({ api_key_id: keyId });
       res.status(200).json({ message: 'API key deleted' });
     } catch (error: any) {
       logger.error(`Error deleting API key: ${error.message}`);

@@ -82,43 +82,49 @@ class AuthService {
       logger.debug('Attempting to refresh access token');
       
       // Verify the refresh token with the correct secret
-      try {
-        const decoded = jwt.verify(token, this.REFRESH_TOKEN_SECRET) as { userId: string, type: string };
-        
-        if (decoded.type !== 'refresh') {
-          logger.warn('Token refresh failed: Not a refresh token');
-          throw new Error('Invalid refresh token');
-        }
-
-        const tokenData = refreshTokens.get(token);
-        if (!tokenData) {
-          logger.warn('Token refresh failed: Invalid refresh token');
-          throw new Error('Invalid refresh token');
-        }
-
-        if (new Date() > tokenData.expiresAt) {
-          logger.warn(`Token refresh failed: Expired refresh token for user ID: ${tokenData.userId}`);
-          refreshTokens.delete(token);
-          throw new Error('Refresh token expired');
-        }
-
-        const user = await databaseController.findUserById(decoded.userId);
-        if (!user) {
-          logger.error(`Token refresh failed: User ID ${decoded.userId} not found`);
-          throw new Error('User not found');
-        }
-
-        const accessToken = this.generateToken(user);
-        
-        logger.info(`Access token refreshed successfully for user ID: ${user.user_id}`);
-        return { accessToken };
-      } catch (jwtError) {
-        logger.warn(`Token verification failed: ${jwtError instanceof Error ? jwtError.message : 'Unknown error'}`);
+      const decoded = jwt.verify(token, this.REFRESH_TOKEN_SECRET) as { userId: string, type: string };
+      
+      if (decoded.type !== 'refresh') {
+        logger.warn('Token refresh failed: Not a refresh token');
         throw new Error('Invalid refresh token');
       }
+
+      const tokenData = refreshTokens.get(token);
+      if (!tokenData) {
+        logger.warn('Token refresh failed: Invalid refresh token');
+        throw new Error('Invalid refresh token');
+      }
+
+      if (new Date() > tokenData.expiresAt) {
+        logger.warn(`Token refresh failed: Expired refresh token for user ID: ${tokenData.userId}`);
+        refreshTokens.delete(token);
+        throw new Error('Refresh token expired');
+      }
+
+      const user = await databaseController.findUserById(decoded.userId);
+      if (!user) {
+        logger.error(`Token refresh failed: User ID ${decoded.userId} not found`);
+        throw new Error('User not found');
+      }
+
+      const accessToken = this.generateToken(user);
+      
+      logger.info(`Access token refreshed successfully for user ID: ${user.user_id}`);
+      return { accessToken };
     } catch (error) {
-      logger.error(`Error refreshing access token: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
+      if (error instanceof Error) {
+        if (error.message === 'User not found') {
+          throw error; // Re-throw user not found error
+        }
+        if (error.message === 'Refresh token expired') {
+          throw error; // Re-throw expired token error
+        }
+        // For JWT verification errors or other errors
+        logger.warn(`Token verification failed: ${error.message}`);
+      } else {
+        logger.warn(`Token verification failed: Unknown error`);
+      }
+      throw new Error('Invalid refresh token');
     }
   }
 

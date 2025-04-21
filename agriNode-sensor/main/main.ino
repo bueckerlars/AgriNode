@@ -183,7 +183,10 @@ bool sendDataToGateway(float temperature, float humidity, float pressure, float 
   // Begin HTTP request
   http.begin(client, API_ENDPOINT);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Key", API_KEY);
+  
+  // Add Bearer token authentication
+  String authHeader = String("Bearer ") + API_KEY;
+  http.addHeader("Authorization", authHeader);
   
   // Send POST request
   int httpResponseCode = http.POST(jsonData);

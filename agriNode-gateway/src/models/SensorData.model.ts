@@ -34,6 +34,7 @@ export default (sequelize: Sequelize) => {
           model: 'Sensors',
           key: 'sensor_id',
         },
+        onDelete: 'CASCADE',
       },
       timestamp: {
         type: DataTypes.DATE,

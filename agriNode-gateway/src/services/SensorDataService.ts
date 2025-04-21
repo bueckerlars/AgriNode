@@ -135,7 +135,11 @@ class SensorDataService {
    */
   async deleteAllSensorData(sensorId: string): Promise<number> {
     try {
-      return await databaseController.deleteSensorData({ where: { sensor_id: sensorId } });
+      const result = await databaseController.deleteSensorData({
+        where: { sensor_id: sensorId }
+      });
+      logger.info(`Deleted ${result} records for sensor ${sensorId}`);
+      return result;
     } catch (error) {
       logger.error(`Error deleting all sensor data for sensor: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
