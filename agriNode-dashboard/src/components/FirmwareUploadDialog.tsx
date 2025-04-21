@@ -34,7 +34,7 @@ export function FirmwareUploadDialog() {
     if (!file || !version) return;
 
     const formData = new FormData();
-    formData.append('firmware', file);
+    formData.append('file', file); 
     formData.append('version', version);
 
     try {

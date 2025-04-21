@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { firmwareApi } from '../api/firmwareApi';
 import { Firmware } from '../types/firmware';
-import { useToast } from '../hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 
 interface FirmwareContextType {
@@ -18,7 +18,6 @@ const FirmwareContext = createContext<FirmwareContextType | undefined>(undefined
 export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   const [firmwareList, setFirmwareList] = useState<Firmware[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const { user } = useAuth();
 
   const refreshFirmwareList = async () => {
@@ -29,11 +28,7 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
       const firmware = await firmwareApi.getAllFirmware();
       setFirmwareList(firmware);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load firmware list",
-        variant: "destructive",
-      });
+      toast.error('Fehler beim Laden der Firmware-Liste');
     } finally {
       setIsLoading(false);
     }
@@ -42,17 +37,10 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   const uploadFirmware = async (formData: FormData) => {
     try {
       await firmwareApi.uploadFirmware(formData);
-      toast({
-        title: "Success",
-        description: "Firmware uploaded successfully",
-      });
+      toast.success('Firmware erfolgreich hochgeladen');
       await refreshFirmwareList();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to upload firmware",
-        variant: "destructive",
-      });
+      toast.error('Fehler beim Hochladen der Firmware');
       throw error;
     }
   };
@@ -60,17 +48,10 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   const setActiveFirmware = async (firmwareId: string) => {
     try {
       await firmwareApi.setActiveFirmware(firmwareId);
-      toast({
-        title: "Success",
-        description: "Firmware activated successfully",
-      });
+      toast.success('Firmware erfolgreich aktiviert');
       await refreshFirmwareList();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to activate firmware",
-        variant: "destructive",
-      });
+      toast.error('Fehler beim Aktivieren der Firmware');
       throw error;
     }
   };
@@ -78,17 +59,10 @@ export function FirmwareProvider({ children }: { children: React.ReactNode }) {
   const deleteFirmware = async (firmwareId: string) => {
     try {
       await firmwareApi.deleteFirmware(firmwareId);
-      toast({
-        title: "Success",
-        description: "Firmware deleted successfully",
-      });
+      toast.success('Firmware erfolgreich gelöscht');
       await refreshFirmwareList();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete firmware",
-        variant: "destructive",
-      });
+      toast.error('Fehler beim Löschen der Firmware');
       throw error;
     }
   };
