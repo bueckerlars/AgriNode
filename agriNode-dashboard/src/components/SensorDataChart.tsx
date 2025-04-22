@@ -22,7 +22,7 @@ const UNITS = {
   temperature: "°C",
   humidity: "%",
   soilMoisture: "%",
-  brightness: "%"
+  brightness: "lx"
 };
 
 const TIME_RANGES = [
@@ -200,9 +200,10 @@ const SensorDataChart = ({ title, data, dataType, height = 300, selectedTimeRang
     switch(dataType) {
       case 'temperature':
         return ['auto', 'auto']; // Temperatur kann negativ sein
+      case 'brightness':
+          return ['auto', 'auto'];
       case 'soilMoisture':
       case 'humidity':
-      case 'brightness':
       default:
         return [0, 100]; // Prozentuale Werte von 0-100%
     }
