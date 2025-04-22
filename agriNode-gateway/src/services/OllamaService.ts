@@ -1,0 +1,279 @@
+import Ollama from 'ollama';
+import { SensorDataAnalysisRequest, AnalysisResponse, SensorTypeAnalysis, SensorDataPoint } from '../types/ollama.types';
+
+type SensorType = 'temperature' | 'humidity' | 'brightness' | 'soilMoisture';
+
+interface SingleSensorData {
+    timestamp: string;
+    value: number;
+}
+
+interface SensorTypeInfo {
+    unit: string;
+    optimalRange: string;
+    criticalLow: string;
+    criticalHigh: string;
+    description: string;
+}
+
+type SensorTypeInfoMap = {
+    [K in SensorType]: SensorTypeInfo;
+};
+
+export class OllamaService {
+    private ollama: typeof Ollama;
+    private readonly MODEL = 'deepseek-r1:8b';
+    private readonly SENSOR_TYPES: SensorType[] = ['temperature', 'humidity', 'brightness', 'soilMoisture'];
+
+    private readonly sensorTypeInfo: SensorTypeInfoMap = {
+        temperature: {
+            unit: '°C',
+            optimalRange: '18-24°C',
+            criticalLow: '15°C',
+            criticalHigh: '28°C',
+            description: 'Indoor room temperature for houseplants'
+        },
+        humidity: {
+            unit: '%',
+            optimalRange: '40-60%',
+            criticalLow: '30%',
+            criticalHigh: '70%',
+            description: 'Indoor air humidity for houseplants'
+        },
+        brightness: {
+            unit: 'Lux',
+            optimalRange: '1000-3000 Lux',
+            criticalLow: '500 Lux',
+            criticalHigh: '5000 Lux',
+            description: 'Indoor light levels for houseplants'
+        },
+        soilMoisture: {
+            unit: '%',
+            optimalRange: '40-60%',
+            criticalLow: '20%',
+            criticalHigh: '80%',
+            description: 'Soil moisture levels for houseplants'
+        }
+    };
+
+    constructor() {
+        this.ollama = Ollama;
+    }
+
+    async analyzeSensorData(request: SensorDataAnalysisRequest): Promise<AnalysisResponse> {
+        try {
+            const availableSensorTypes = this.getAvailableSensorTypes(request.sensorData);
+            
+            const sensorAnalyses = await Promise.all(
+                availableSensorTypes.map(sensorType => 
+                    this.analyzeSingleSensorType(request, sensorType as SensorType)
+                )
+            );
+
+            const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes);
+
+            const response = await this.ollama.generate({
+                model: this.MODEL,
+                prompt: this.buildOverallSummaryPrompt(sensorAnalyses, correlations),
+                format: 'json',
+                system: 'You are an expert in analyzing agricultural sensor data. Create a comprehensive summary of the individual analyses and provide an overall assessment. Respond ONLY with a JSON object in German.',
+                template: `{
+                    "summary": "Zusammenfassende Analyse der Umweltbedingungen"
+                }`
+            });
+
+            return {
+                overallSummary: JSON.parse(response.response).summary,
+                sensorAnalyses,
+                correlations,
+                metadata: {
+                    modelUsed: this.MODEL,
+                    analysisTimestamp: new Date().toISOString(),
+                    dataPointsAnalyzed: request.sensorData.length * availableSensorTypes.length
+                }
+            };
+        } catch (error) {
+            console.error('Error analyzing sensor data:', error);
+            throw new Error('Failed to analyze sensor data');
+        }
+    }
+
+    private getAvailableSensorTypes(sensorData: SensorDataPoint[]): SensorType[] {
+        const availableTypes = new Set<SensorType>();
+        
+        sensorData.forEach(dataPoint => {
+            Object.entries(dataPoint.measurements).forEach(([type, value]) => {
+                if (value !== undefined && this.SENSOR_TYPES.includes(type as SensorType)) {
+                    availableTypes.add(type as SensorType);
+                }
+            });
+        });
+
+        return Array.from(availableTypes);
+    }
+
+    private async analyzeSingleSensorType(
+        request: SensorDataAnalysisRequest,
+        sensorType: SensorType
+    ): Promise<SensorTypeAnalysis> {
+        const sensorData: SingleSensorData[] = request.sensorData
+            .map(dataPoint => ({
+                timestamp: dataPoint.timestamp,
+                value: dataPoint.measurements[sensorType]
+            }))
+            .filter((data): data is SingleSensorData => data.value !== undefined);
+
+        const prompt = this.buildSingleSensorAnalysisPrompt(sensorData, sensorType, request.analysisType);
+        
+        const response = await this.ollama.generate({
+            model: this.MODEL,
+            prompt,
+            format: 'json',
+            system: `You are an expert in analyzing ${sensorType} data in agriculture. Analyze the data and provide detailed insights. Respond ONLY with a JSON object in German.`,
+            template: `{
+                "summary": "Zusammenfassende Analyse der ${sensorType}-Daten",
+                "trends": [
+                    {
+                        "type": "steigend|fallend|stabil",
+                        "description": "Detaillierte Beschreibung des Trends",
+                        "confidence": 0.95
+                    }
+                ],
+                "anomalies": [
+                    {
+                        "timestamp": "2024-03-21T10:00:00Z",
+                        "description": "Beschreibung der Anomalie",
+                        "severity": "low|medium|high"
+                    }
+                ],
+                "recommendations": [
+                    "Konkrete Handlungsempfehlung basierend auf den Analyseergebnissen"
+                ]
+            }`
+        });
+
+        return {
+            sensorType,
+            ...JSON.parse(response.response)
+        };
+    }
+
+    private async analyzeCorrelations(
+        sensorData: SensorDataPoint[],
+        sensorTypes: string[]
+    ) {
+        if (sensorTypes.length < 2) {
+            return [];
+        }
+
+        const prompt = this.buildCorrelationAnalysisPrompt(sensorData, sensorTypes);
+        
+        const response = await this.ollama.generate({
+            model: this.MODEL,
+            prompt,
+            format: 'json',
+            system: 'You are an expert in analyzing relationships between different environmental factors in agriculture. Respond ONLY with a JSON object in German.',
+            template: `{
+                "correlations": [
+                    {
+                        "description": "Beschreibung des Zusammenhangs zwischen den Messgrößen",
+                        "sensorTypes": ["sensorTyp1", "sensorTyp2"],
+                        "confidence": 0.95
+                    }
+                ]
+            }`
+        });
+
+        return JSON.parse(response.response).correlations;
+    }
+
+    private buildSingleSensorAnalysisPrompt(
+        sensorData: SingleSensorData[],
+        sensorType: SensorType,
+        analysisType: string
+    ): string {
+        const info = this.sensorTypeInfo[sensorType];
+        
+        return `
+            Analyze the following ${sensorType} data for indoor houseplants:
+            ${JSON.stringify(sensorData, null, 2)}
+            
+            Analysis type: ${analysisType}
+            Measurement: ${info.description}
+            Unit: ${info.unit}
+            Optimal indoor range: ${info.optimalRange}
+            Critical thresholds: < ${info.criticalLow}, > ${info.criticalHigh}
+            
+            Context:
+            - Data is collected from indoor environment
+            - Focused on houseplant health monitoring
+            - Consider typical indoor conditions and daily fluctuations
+            
+            Create a detailed analysis including:
+            - Summary of measurements in context of optimal indoor ranges
+            - Identified trends with confidence levels (considering indoor patterns)
+            - Anomalies with severity levels (in context of houseplant requirements)
+            - Specific recommendations for indoor plant care optimization
+            
+            The response MUST exactly match the provided JSON format and be in German.
+        `;
+    }
+
+    private buildCorrelationAnalysisPrompt(
+        sensorData: SensorDataPoint[],
+        sensorTypes: string[]
+    ): string {
+        return `
+            Analyze the correlations between the following indoor sensor data:
+            ${JSON.stringify(sensorData, null, 2)}
+            
+            Available sensor types: ${sensorTypes.join(', ')}
+            
+            Consider these indoor environment relationships:
+            - Temperature <-> Humidity (inverse correlation, affected by heating/AC)
+            - Brightness <-> Temperature (mild correlation due to indoor lighting and window exposure)
+            - Soil Moisture <-> Humidity (weak correlation in indoor settings)
+            - Temperature <-> Soil Moisture (increased evaporation with higher indoor temperatures)
+            
+            Indoor-specific factors to consider:
+            - Daily heating/cooling cycles
+            - Impact of ventilation
+            - Effect of artificial lighting
+            - Indoor humidity management
+            
+            Identify the strongest relationships and assess their significance for indoor plant health.
+            The response MUST exactly match the provided JSON format and be in German.
+        `;
+    }
+
+    private buildOverallSummaryPrompt(
+        sensorAnalyses: SensorTypeAnalysis[],
+        correlations: any[]
+    ): string {
+        return `
+            Create a comprehensive summary based on the following indoor environment analyses:
+            
+            Sensor analyses:
+            ${JSON.stringify(sensorAnalyses, null, 2)}
+            
+            Detected correlations:
+            ${JSON.stringify(correlations, null, 2)}
+            
+            Consider these indoor environment aspects:
+            - Overall state of indoor growing conditions
+            - Impact of building climate control
+            - Daily and seasonal patterns
+            - Window exposure and artificial lighting
+            - Air circulation and ventilation
+            
+            Provide recommendations for:
+            - Optimal placement of plants
+            - Ventilation adjustments
+            - Watering schedule optimization
+            - Lighting improvements
+            - Humidity management
+            
+            The response MUST exactly match the provided JSON format and be in German.
+        `;
+    }
+} 
