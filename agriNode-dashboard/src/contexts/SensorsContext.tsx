@@ -3,6 +3,7 @@ import { Sensor, RegisterSensorRequest, UpdateSensorRequest } from '@/types/api'
 import sensorApi from '@/api/sensorApi';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
+import { IndexedDBService } from '@/services/indexedDBService';
 
 interface SensorsContextType {
   sensors: Sensor[];
@@ -33,18 +34,49 @@ export const SensorsProvider: React.FC<SensorsProviderProps> = ({ children }) =>
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDbInitialized, setIsDbInitialized] = useState(false);
   const { user } = useAuth();
+  const [db] = useState(() => new IndexedDBService());
+
+  useEffect(() => {
+    db.init()
+      .then(() => setIsDbInitialized(true))
+      .catch(error => {
+        console.error('Failed to initialize IndexedDB:', error);
+        setError('Failed to initialize local storage');
+      });
+  }, []);
 
   const fetchSensors = async () => {
-    if (!user) return;
+    if (!user || !isDbInitialized) return;
 
     try {
       setLoading(true);
       setError(null);
-      // Clear the sensors state before fetching new data to avoid duplicates
-      setSensors([]);
+
+      // Try to get sensors from cache first
+      try {
+        const cachedSensors = await db.getCachedSensors();
+        if (cachedSensors.length > 0) {
+          setSensors(cachedSensors);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.warn('Failed to read from cache:', e);
+      }
+
+      // Fetch fresh data from API
       const data = await sensorApi.getAllSensors();
       setSensors(data);
+
+      // Update cache
+      if (isDbInitialized) {
+        try {
+          await db.cacheSensors(data);
+        } catch (e) {
+          console.warn('Failed to update cache:', e);
+        }
+      }
     } catch (error) {
       console.error('Fehler beim Abrufen der Sensoren:', error);
       setError('Fehler beim Laden der Sensoren');
@@ -55,10 +87,13 @@ export const SensorsProvider: React.FC<SensorsProviderProps> = ({ children }) =>
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && isDbInitialized) {
       fetchSensors();
+    } else if (!user && isDbInitialized) {
+      setSensors([]);
+      db.clearCache().catch(console.error);
     }
-  }, [user]);
+  }, [user, isDbInitialized]);
 
   const getSensorById = (id: string) => {
     return sensors.find(sensor => sensor.sensor_id === id);
@@ -69,6 +104,14 @@ export const SensorsProvider: React.FC<SensorsProviderProps> = ({ children }) =>
       setLoading(true);
       const newSensor = await sensorApi.registerSensor(data);
       setSensors(prev => [...prev, newSensor]);
+      
+      // Update cache
+      try {
+        await db.cacheSensors([...sensors, newSensor]);
+      } catch (e) {
+        console.warn('Failed to update cache:', e);
+      }
+      
       toast.success('Sensor erfolgreich registriert');
       return newSensor;
     } catch (error) {
@@ -84,9 +127,18 @@ export const SensorsProvider: React.FC<SensorsProviderProps> = ({ children }) =>
     try {
       setLoading(true);
       const updatedSensor = await sensorApi.updateSensor(id, data);
-      setSensors(prev => prev.map(sensor => 
+      const updatedSensors = sensors.map(sensor => 
         sensor.sensor_id === id ? updatedSensor : sensor
-      ));
+      );
+      setSensors(updatedSensors);
+      
+      // Update cache
+      try {
+        await db.cacheSensors(updatedSensors);
+      } catch (e) {
+        console.warn('Failed to update cache:', e);
+      }
+      
       toast.success('Sensor erfolgreich aktualisiert');
       return updatedSensor;
     } catch (error) {
@@ -102,7 +154,16 @@ export const SensorsProvider: React.FC<SensorsProviderProps> = ({ children }) =>
     try {
       setLoading(true);
       await sensorApi.deleteSensor(id);
-      setSensors(prev => prev.filter(sensor => sensor.sensor_id !== id));
+      const updatedSensors = sensors.filter(sensor => sensor.sensor_id !== id);
+      setSensors(updatedSensors);
+      
+      // Update cache
+      try {
+        await db.cacheSensors(updatedSensors);
+      } catch (e) {
+        console.warn('Failed to update cache:', e);
+      }
+      
       toast.success('Sensor erfolgreich gelöscht');
     } catch (error) {
       console.error('Fehler beim Löschen des Sensors:', error);

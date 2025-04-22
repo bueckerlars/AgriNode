@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { SensorData } from '@/types/api';
 import sensorDataApi from '@/api/sensorDataApi';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
+import { IndexedDBService } from '@/services/indexedDBService';
 
 interface SensorDataContextType {
   loading: boolean;
@@ -30,7 +31,18 @@ interface SensorDataProviderProps {
 export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDbInitialized, setIsDbInitialized] = useState(false);
   const { user } = useAuth();
+  const [db] = useState(() => new IndexedDBService());
+
+  useEffect(() => {
+    db.init()
+      .then(() => setIsDbInitialized(true))
+      .catch(error => {
+        console.error('Failed to initialize IndexedDB:', error);
+        setError('Failed to initialize local storage');
+      });
+  }, []);
 
   const getSensorDataBySensorId = async (sensorId: string, signal?: AbortSignal) => {
     try {
@@ -39,7 +51,31 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
         throw new Error('Benutzer ist nicht eingeloggt');
       }
 
+      if (!isDbInitialized) {
+        const data = await sensorDataApi.getSensorDataBySensorId(sensorId, signal);
+        return data;
+      }
+
+      // Try to get data from cache first
+      try {
+        const cachedData = await db.getCachedSensorData(sensorId);
+        if (cachedData.length > 0) {
+          return cachedData;
+        }
+      } catch (e) {
+        console.warn('Failed to read from cache:', e);
+      }
+
+      // Fetch fresh data from API
       const data = await sensorDataApi.getSensorDataBySensorId(sensorId, signal);
+
+      // Update cache
+      try {
+        await db.cacheSensorData(sensorId, data);
+      } catch (e) {
+        console.warn('Failed to update cache:', e);
+      }
+
       return data;
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
@@ -58,7 +94,34 @@ export const SensorDataProvider: React.FC<SensorDataProviderProps> = ({ children
         throw new Error('Benutzer ist nicht eingeloggt');
       }
 
+      if (!isDbInitialized) {
+        const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, startTime, endTime, signal);
+        return data;
+      }
+
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+
+      // Try to get data from cache first
+      try {
+        const cachedData = await db.getCachedSensorData(sensorId, start, end);
+        if (cachedData.length > 0) {
+          return cachedData;
+        }
+      } catch (e) {
+        console.warn('Failed to read from cache:', e);
+      }
+
+      // Fetch fresh data from API
       const data = await sensorDataApi.getSensorDataByTimeRange(sensorId, startTime, endTime, signal);
+
+      // Update cache
+      try {
+        await db.cacheSensorData(sensorId, data);
+      } catch (e) {
+        console.warn('Failed to update cache:', e);
+      }
+
       return data;
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
