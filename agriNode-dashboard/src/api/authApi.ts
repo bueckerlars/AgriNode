@@ -33,7 +33,7 @@ const authApi = {
   /**
    * Aktualisiert das Access-Token
    */
-  refreshToken: async (authToken: string): Promise<AuthResponse> => {
+  refreshToken: async (): Promise<AuthResponse> => {
     // Token will be added automatically by the interceptor
     const response = await apiClient.post<AuthResponse>(
       `/auth/refresh`
@@ -51,7 +51,7 @@ const authApi = {
   /**
    * Ruft das Profil des aktuellen Benutzers ab
    */
-  getProfile: async (authToken: string): Promise<User> => {
+  getProfile: async (): Promise<User> => {
     // Token will be added automatically by the interceptor
     const response = await apiClient.get<User>(
       `/auth/me`

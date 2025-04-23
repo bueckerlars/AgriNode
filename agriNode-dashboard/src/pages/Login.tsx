@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export const Login = () => {
-  const { login, user } = useAuth();
+  const { login, user, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -14,23 +14,29 @@ export const Login = () => {
 
   // Überwache User-Status Änderungen für die Navigation
   useEffect(() => {
-    if (user && isLoggingIn) {
-      setIsLoggingIn(false);
+    // Wenn wir einen Benutzer haben und nicht mehr im Loading-Zustand sind,
+    // dann navigieren wir zur Startseite
+    if (user && !loading) {
       navigate("/");
     }
-  }, [user, isLoggingIn, navigate]);
+  }, [user, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isLoggingIn) return; // Verhindere doppelte Submissions
+    
     setIsLoggingIn(true);
     
     try {
       await login({ email, password });
-      // Die Navigation erfolgt jetzt im useEffect, nachdem der User-Status aktualisiert wurde
+      // Erfolgreiche Login-Nachricht anzeigen
       toast.success("Login erfolgreich!");
-    } catch (error) {
+      // Wir navigieren nicht hier, sondern im useEffect oben, wenn der user-State aktualisiert wurde
+    } catch (error: any) {
       setIsLoggingIn(false);
-      toast.error("Login fehlgeschlagen. Bitte überprüfe deine Anmeldedaten und versuche es erneut.");
+      const errorMessage = error.message || "Login fehlgeschlagen. Bitte überprüfe deine Anmeldedaten und versuche es erneut.";
+      toast.error(errorMessage);
       console.error("Login fehlgeschlagen", error);
     }
   };
@@ -39,8 +45,24 @@ export const Login = () => {
     <div className="flex flex-col items-center justify-center min-h-screen p-4 w-full">
       <h1 className="text-2xl font-bold mb-4">Login</h1>
       <form className="flex flex-col gap-4 w-full max-w-sm" onSubmit={handleLogin}>
-        <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full" />
-        <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full" />
+        <Input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full"
+          disabled={isLoggingIn}
+          required
+        />
+        <Input
+          type="password"
+          placeholder="Password"
+          value={password} 
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full"
+          disabled={isLoggingIn}
+          required
+        />
         <Button type="submit" className="w-full" disabled={isLoggingIn}>
           {isLoggingIn ? "Anmeldung..." : "Login"}
         </Button>
