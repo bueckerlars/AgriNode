@@ -515,6 +515,7 @@ export const Analysis = () => {
                           analytics={a}
                           sensorName={sensorName}
                           onDelete={deleteAnalysis}
+                          isExpanded={true} // Laufende Analysen immer ausgeklappt anzeigen
                         />
                       );
                     })}
