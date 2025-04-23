@@ -1,8 +1,9 @@
-import { createContext, useContext, ReactNode, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { analyticsApi } from '../api/analyticsApi';
 import { SensorAnalytics, AnalysisType, TimeRange, CreateAnalyticsRequest, AnalysisStatus } from '../types/api';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
+import { isEqual } from 'lodash';
 
 interface AnalyticsContextProps {
   analytics: SensorAnalytics[];
@@ -28,33 +29,27 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [previousAnalyticsState, setPreviousAnalyticsState] = useState<Record<string, AnalysisStatus>>({});
   
-  // Intervall-Zeiten in Millisekunden
   const REGULAR_INTERVAL = 60000; // 60 Sekunden für reguläre Abfragen
   const ACTIVE_INTERVAL = 15000;  // 15 Sekunden für aktive Analysen
   
   const intervalIdRef = useRef<number | null>(null);
   const { user, authToken } = useAuth();
 
-  // Hilfsfunktion zum Prüfen, ob eine aktive Analyse existiert
   const hasActiveAnalysis = (analyticsList: SensorAnalytics[]) => {
     return analyticsList.some(
       a => a.status === AnalysisStatus.PENDING || a.status === AnalysisStatus.PROCESSING
     );
   };
   
-  // Prüft auf Statusänderungen und zeigt Toast-Benachrichtigungen an
   const checkForStatusChanges = (currentAnalytics: SensorAnalytics[]) => {
     const currentState: Record<string, AnalysisStatus> = {};
     
-    // Sammle alle aktuellen Status
     currentAnalytics.forEach(analysis => {
       currentState[analysis.analytics_id] = analysis.status;
       
-      // Prüfe, ob sich der Status geändert hat
       if (previousAnalyticsState[analysis.analytics_id] && 
           previousAnalyticsState[analysis.analytics_id] !== analysis.status) {
         
-        // Zeige Toast-Benachrichtigung bei Statusänderung an
         switch (analysis.status) {
           case AnalysisStatus.COMPLETED:
             toast.success(`Analyse "${getAnalysisTypeLabel(analysis.type)}" abgeschlossen`);
@@ -69,11 +64,9 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
       }
     });
     
-    // Aktualisiere den gespeicherten Zustand
     setPreviousAnalyticsState(currentState);
   };
 
-  // Hilfsfunktion für den Analysentyp-Label
   const getAnalysisTypeLabel = (type: AnalysisType) => {
     switch (type) {
       case AnalysisType.TREND:
@@ -87,25 +80,25 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Lädt die Analysedaten vom Server
   const loadAnalytics = async () => {
-    // Wenn kein Nutzer eingeloggt ist, keine Analysen abfragen
     if (!user || !authToken) return;
     
     try {
       setLoadingAnalytics(true);
       const data = await analyticsApi.getUserAnalytics();
       
-      // Prüfe auf Statusänderungen und zeige Benachrichtigungen an
       checkForStatusChanges(data);
       
-      setAnalytics(data);
+      setAnalytics(prevAnalytics => {
+        if (!isEqual(prevAnalytics, data)) {
+          return data;
+        }
+        return prevAnalytics;
+      });
       
-      // Passe das Intervall basierend auf aktiven Analysen an
       setupPollingInterval(data);
     } catch (error) {
       console.error('Failed to load analytics:', error);
-      // Nur einen Toast anzeigen, wenn der Nutzer eingeloggt ist
       if (user && authToken) {
         toast.error('Analysen konnten nicht geladen werden.');
       }
@@ -114,23 +107,19 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Richtet das passende Abfrageintervall ein
   const setupPollingInterval = (currentAnalytics: SensorAnalytics[]) => {
-    // Bestimme das passende Intervall basierend auf aktiven Analysen
     const interval = hasActiveAnalysis(currentAnalytics) ? ACTIVE_INTERVAL : REGULAR_INTERVAL;
     
-    // Entferne das alte Intervall, falls vorhanden
     if (intervalIdRef.current !== null) {
       window.clearInterval(intervalIdRef.current);
     }
     
-    // Setze ein neues Intervall
     intervalIdRef.current = window.setInterval(loadAnalytics, interval);
   };
 
-  const refreshAnalytics = async () => {
+  const refreshAnalytics = useCallback(async () => {
     await loadAnalytics();
-  };
+  }, [user, authToken]);
 
   const createAnalysis = async (sensorId: string, type: AnalysisType, timeRange: TimeRange): Promise<SensorAnalytics | null> => {
     try {
@@ -145,7 +134,6 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
       const newAnalytics = await analyticsApi.createAnalytics(request);
       
       if (newAnalytics) {
-        // Aktualisiere Analysen und setze auf kürzeres Abfrageintervall
         setAnalytics(prev => {
           const updatedAnalytics = [...prev, newAnalytics];
           setupPollingInterval(updatedAnalytics);
@@ -168,7 +156,6 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
       const success = await analyticsApi.deleteAnalytics(analyticsId);
       
       if (success) {
-        // Aktualisiere Analysen und passe Abfrageintervall an
         setAnalytics(prev => {
           const updatedAnalytics = prev.filter(a => a.analytics_id !== analyticsId);
           setupPollingInterval(updatedAnalytics);
@@ -196,21 +183,18 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Effekt für initiales Laden und Abfrage-Intervall
   useEffect(() => {
-    // Nur laden, wenn ein Nutzer eingeloggt ist
     if (user && authToken) {
       loadAnalytics();
     }
     
-    // Cleanup-Funktion zum Entfernen des Intervalls beim Unmounten
     return () => {
       if (intervalIdRef.current !== null) {
         window.clearInterval(intervalIdRef.current);
         intervalIdRef.current = null;
       }
     };
-  }, [user, authToken]); // Erneut ausführen, wenn sich der Anmeldestatus ändert
+  }, [user, authToken]);
 
   return (
     <AnalyticsContext.Provider

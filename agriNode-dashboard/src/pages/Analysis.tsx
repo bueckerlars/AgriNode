@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +47,12 @@ export const Analysis = () => {
   );
   const [activeTab, setActiveTab] = useState<string>("data-analysis");
 
-  const timeRanges = [
+  const timeRanges = useMemo(() => [
     { value: "7d", label: "Letzte 7 Tage" },
     { value: "14d", label: "Letzte 14 Tage" },
     { value: "30d", label: "Letzter Monat" },
     { value: "90d", label: "Letzte 3 Monate" }
-  ];
+  ], []);
 
   // URL-Parameter beim Laden der Komponente verarbeiten
   useEffect(() => {
@@ -90,7 +90,7 @@ export const Analysis = () => {
     }
   }, [selectedSensors, timeRange]);
 
-  const fetchAnalysisData = async () => {
+  const fetchAnalysisData = useCallback(async () => {
     try {
       setLoading(true);
       const now = new Date();
@@ -120,9 +120,9 @@ export const Analysis = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSensors, timeRange, getSensorDataByTimeRange]);
 
-  const calculateDailyAverages = (data: { [sensorId: string]: SensorData[] }) => {
+  const calculateDailyAverages = useCallback((data: { [sensorId: string]: SensorData[] }) => {
     const dailyMap = new Map<string, { [key: string]: { sum: number; count: number } }>();
 
     // Für jeden Sensor
@@ -185,34 +185,36 @@ export const Analysis = () => {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     setDailyData(averagedData);
-  };
+  }, [sensors]);
 
-  const convertSoilMoisture = (value: number): number => {
+  const convertSoilMoisture = useCallback((value: number): number => {
     const MIN_VALUE = 300; // 100% feucht
     const MAX_VALUE = 650; // 0% feucht (trocken)
     const range = MAX_VALUE - MIN_VALUE;
     
     const boundedValue = Math.max(MIN_VALUE, Math.min(MAX_VALUE, value));
     return Math.round(((MAX_VALUE - boundedValue) / range) * 100);
-  };
+  }, []);
 
-  const handleSensorSelect = (sensorId: string) => {
-    if (selectedSensors.includes(sensorId)) {
-      setSelectedSensors(prev => prev.filter(id => id !== sensorId));
-    } else {
-      setSelectedSensors(prev => [...prev, sensorId]);
-    }
+  const handleSensorSelect = useCallback((sensorId: string) => {
+    setSelectedSensors(prev => {
+      if (prev.includes(sensorId)) {
+        return prev.filter(id => id !== sensorId);
+      } else {
+        return [...prev, sensorId];
+      }
+    });
     // Reset des Selectors nach jeder Auswahl
     setSelectorKey(prev => prev + 1);
-  };
+  }, []);
 
-  const getSensorName = (sensorId: string) => {
+  const getSensorName = useCallback((sensorId: string) => {
     const sensor = sensors.find(s => s.sensor_id === sensorId);
     return sensor ? `${sensor.name} (${sensor.location || 'Kein Standort'})` : sensorId;
-  };
+  }, [sensors]);
 
   // Hilfsfunktion für das Rendern eines einzelnen Diagramms
-  const renderChart = (
+  const renderChart = useCallback((
     data: DailyData[],
     measurementType: MeasurementKey,
     title: string,
@@ -261,7 +263,27 @@ export const Analysis = () => {
         </ResponsiveContainer>
       </div>
     );
-  };
+  }, [timeRange, getSensorName, selectedSensors]);
+
+  // Gruppiere fertige und ausstehende Analysen
+  const { pendingAnalytics, completedAnalytics } = useMemo(() => {
+    const pending = analytics.filter(a => a.status === 'pending' || a.status === 'processing');
+    const completed = analytics
+      .filter(a => a.status === 'completed' || a.status === 'failed')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    return { pendingAnalytics: pending, completedAnalytics: completed };
+  }, [analytics]);
+
+  // Sensorfilterung für Dropdown
+  const availableSensors = useMemo(() => {
+    return sensors.filter(sensor => !selectedSensors.includes(sensor.sensor_id || ""));
+  }, [sensors, selectedSensors]);
+
+  // Messwert-Filterungsoption
+  const measurementFilterValue = useMemo(() => {
+    return JSON.stringify(selectedMeasurements);
+  }, [selectedMeasurements]);
 
   return (
     <div className="container mx-auto p-4">
@@ -304,14 +326,12 @@ export const Analysis = () => {
                   <SelectValue placeholder="Sensor hinzufügen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sensors
-                    .filter(sensor => !selectedSensors.includes(sensor.sensor_id || ""))
-                    .map((sensor) => (
-                      <SelectItem key={sensor.sensor_id} value={sensor.sensor_id || ""}>
-                        {sensor.name} ({sensor.location || "Kein Standort"})
-                      </SelectItem>
-                    ))}
-                  {sensors.filter(sensor => !selectedSensors.includes(sensor.sensor_id || "")).length === 0 && (
+                  {availableSensors.map((sensor) => (
+                    <SelectItem key={sensor.sensor_id} value={sensor.sensor_id || ""}>
+                      {sensor.name} ({sensor.location || "Kein Standort"})
+                    </SelectItem>
+                  ))}
+                  {availableSensors.length === 0 && (
                     <SelectItem value="no-sensors" disabled>
                       Keine weiteren Sensoren verfügbar
                     </SelectItem>
@@ -357,7 +377,7 @@ export const Analysis = () => {
                       </TabsList>
                     </Tabs>
                     <Select
-                      value={JSON.stringify(selectedMeasurements)}
+                      value={measurementFilterValue}
                       onValueChange={(value) => setSelectedMeasurements(JSON.parse(value))}
                     >
                       <SelectTrigger className="w-[240px]">
@@ -491,7 +511,7 @@ export const Analysis = () => {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
               <p>Lade KI-Analysen...</p>
             </div>
-          ) : analytics.length === 0 ? (
+          ) : pendingAnalytics.length === 0 && completedAnalytics.length === 0 ? (
             <div className="text-center py-16 border rounded-lg bg-background">
               <h3 className="text-lg font-medium mb-2">Keine Analysen vorhanden</h3>
               <p className="text-muted-foreground mb-6">
@@ -505,21 +525,19 @@ export const Analysis = () => {
               <div className="mb-8">
                 <h3 className="text-lg font-medium mb-4">Laufende und ausstehende Analysen</h3>
                 <div className="space-y-4">
-                  {analytics
-                    .filter(a => a.status === 'pending' || a.status === 'processing')
-                    .map((a) => {
-                      const sensorName = getSensorName(a.sensor_id);
-                      return (
-                        <AnalyticsResults
-                          key={a.analytics_id}
-                          analytics={a}
-                          sensorName={sensorName}
-                          onDelete={deleteAnalysis}
-                          isExpanded={true} // Laufende Analysen immer ausgeklappt anzeigen
-                        />
-                      );
-                    })}
-                  {analytics.filter(a => a.status === 'pending' || a.status === 'processing').length === 0 && (
+                  {pendingAnalytics.map((a) => {
+                    const sensorName = getSensorName(a.sensor_id);
+                    return (
+                      <AnalyticsResults
+                        key={a.analytics_id}
+                        analytics={a}
+                        sensorName={sensorName}
+                        onDelete={deleteAnalysis}
+                        isExpanded={true} // Laufende Analysen immer ausgeklappt anzeigen
+                      />
+                    );
+                  })}
+                  {pendingAnalytics.length === 0 && (
                     <p className="text-center text-muted-foreground py-4">
                       Keine laufenden Analysen vorhanden
                     </p>
@@ -532,23 +550,20 @@ export const Analysis = () => {
               <div className="mt-8">
                 <h3 className="text-lg font-medium mb-4">Abgeschlossene Analysen</h3>
                 <div className="space-y-4">
-                  {analytics
-                    .filter(a => a.status === 'completed' || a.status === 'failed')
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Sortiere nach Datum absteigend
-                    .map((a, index) => {
-                      const sensorName = getSensorName(a.sensor_id);
-                      // Die neueste Analyse (index === 0) wird aufgeklappt angezeigt
-                      return (
-                        <AnalyticsResults
-                          key={a.analytics_id}
-                          analytics={a}
-                          sensorName={sensorName}
-                          onDelete={deleteAnalysis}
-                          isExpanded={index === 0} // Die neueste Analyse ist aufgeklappt
-                        />
-                      );
-                    })}
-                  {analytics.filter(a => a.status === 'completed' || a.status === 'failed').length === 0 && (
+                  {completedAnalytics.map((a, index) => {
+                    const sensorName = getSensorName(a.sensor_id);
+                    // Die neueste Analyse (index === 0) wird aufgeklappt angezeigt
+                    return (
+                      <AnalyticsResults
+                        key={a.analytics_id}
+                        analytics={a}
+                        sensorName={sensorName}
+                        onDelete={deleteAnalysis}
+                        isExpanded={index === 0} // Die neueste Analyse ist aufgeklappt
+                      />
+                    );
+                  })}
+                  {completedAnalytics.length === 0 && (
                     <p className="text-center text-muted-foreground py-4">
                       Keine abgeschlossenen Analysen vorhanden
                     </p>
