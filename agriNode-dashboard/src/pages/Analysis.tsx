@@ -3,14 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sensor, SensorData } from "@/types/api";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useSensorData } from "@/contexts/SensorDataContext";
+import { useAnalytics } from "@/contexts/AnalyticsContext";
 import { useSearchParams } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { SensorPredictions } from "@/components/SensorPredictions";
+import { CreateAnalysisDialog } from "@/components/CreateAnalysisDialog";
+import { AnalyticsResults } from "@/components/AnalyticsResults";
+import { Separator } from "@/components/ui/separator";
 
 // Definiere die verfügbaren Messwerte
 const MEASUREMENTS = [
@@ -30,6 +33,7 @@ interface DailyData {
 export const Analysis = () => {
   const { sensors } = useSensors();
   const { getSensorDataByTimeRange } = useSensorData();
+  const { analytics, loadingAnalytics, deleteAnalysis, refreshAnalytics } = useAnalytics();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSensors, setSelectedSensors] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState<string>("7d");
@@ -41,6 +45,7 @@ export const Analysis = () => {
   const [selectedMeasurements, setSelectedMeasurements] = useState<MeasurementKey[]>(
     MEASUREMENTS.map(m => m.key)
   );
+  const [activeTab, setActiveTab] = useState<string>("data-analysis");
 
   const timeRanges = [
     { value: "7d", label: "Letzte 7 Tage" },
@@ -56,16 +61,27 @@ export const Analysis = () => {
     if (validSensorIds.length > 0) {
       setSelectedSensors(validSensorIds);
     }
+    
+    const tab = searchParams.get("tab");
+    if (tab === "ai-analysis") {
+      setActiveTab("ai-analysis");
+    }
   }, [searchParams, sensors]);
 
-  // Aktualisiere die URL wenn sich die ausgewählten Sensoren ändern
+  // Aktualisiere die URL wenn sich die ausgewählten Sensoren oder der Tab ändern
   useEffect(() => {
+    const params: Record<string, string> = {};
+    
     if (selectedSensors.length > 0) {
-      setSearchParams({ sensorIds: selectedSensors.join(",") });
-    } else {
-      setSearchParams({});
+      params.sensorIds = selectedSensors.join(",");
     }
-  }, [selectedSensors, setSearchParams]);
+    
+    if (activeTab === "ai-analysis") {
+      params.tab = "ai-analysis";
+    }
+    
+    setSearchParams(params);
+  }, [selectedSensors, activeTab, setSearchParams]);
 
   // Daten für alle ausgewählten Sensoren laden
   useEffect(() => {
@@ -250,196 +266,298 @@ export const Analysis = () => {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">Sensor Analyse</h1>
-
-      <div className="space-y-4 mb-6">
-        <div className="flex flex-wrap gap-2">
-          {selectedSensors.map((sensorId) => (
-            <Badge 
-              key={sensorId}
-              variant="secondary"
-              className="flex items-center gap-1"
-            >
-              {getSensorName(sensorId)}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-4 w-4 p-0 hover:bg-transparent"
-                onClick={() => handleSensorSelect(sensorId)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </Badge>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            key={selectorKey}
-            onValueChange={handleSensorSelect}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Sensor hinzufügen" />
-            </SelectTrigger>
-            <SelectContent>
-              {sensors
-                .filter(sensor => !selectedSensors.includes(sensor.sensor_id || ""))
-                .map((sensor) => (
-                  <SelectItem key={sensor.sensor_id} value={sensor.sensor_id || ""}>
-                    {sensor.name} ({sensor.location || "Kein Standort"})
-                  </SelectItem>
-                ))}
-              {sensors.filter(sensor => !selectedSensors.includes(sensor.sensor_id || "")).length === 0 && (
-                <SelectItem value="no-sensors" disabled>
-                  Keine weiteren Sensoren verfügbar
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={timeRange}
-            onValueChange={setTimeRange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Zeitraum wählen" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeRanges.map((range) => (
-                <SelectItem key={range.value} value={range.value}>
-                  {range.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-8">Lade Analysedaten...</div>
-      ) : selectedSensors.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          Bitte wählen Sie mindestens einen Sensor aus.
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="space-y-2">
-              <CardTitle>Tägliche Entwicklung</CardTitle>
-              <CardDescription>Vergleich der Durchschnittswerte pro Tag</CardDescription>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Tabs defaultValue="combined" value={chartView} onValueChange={setChartView}>
-                  <TabsList>
-                    <TabsTrigger value="combined">Kombiniert</TabsTrigger>
-                    <TabsTrigger value="separate">Getrennt</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Select
-                  value={JSON.stringify(selectedMeasurements)}
-                  onValueChange={(value) => setSelectedMeasurements(JSON.parse(value))}
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="data-analysis">Datenanalyse</TabsTrigger>
+          <TabsTrigger value="ai-analysis">KI-Analyse</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="data-analysis" className="space-y-4">
+          <div className="space-y-4 mb-6">
+            <div className="flex flex-wrap gap-2">
+              {selectedSensors.map((sensorId) => (
+                <Badge 
+                  key={sensorId}
+                  variant="secondary"
+                  className="flex items-center gap-1"
                 >
-                  <SelectTrigger className="w-[240px]">
-                    <SelectValue>
-                      {selectedMeasurements.length === MEASUREMENTS.length 
-                        ? "Alle Messwerte" 
-                        : `${selectedMeasurements.length} Filter aktiv`}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MEASUREMENTS.map((measurement) => {
-                      const isSelected = selectedMeasurements.includes(measurement.key);
+                  {getSensorName(sensorId)}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => handleSensorSelect(sensorId)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select
+                key={selectorKey}
+                onValueChange={handleSensorSelect}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sensor hinzufügen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sensors
+                    .filter(sensor => !selectedSensors.includes(sensor.sensor_id || ""))
+                    .map((sensor) => (
+                      <SelectItem key={sensor.sensor_id} value={sensor.sensor_id || ""}>
+                        {sensor.name} ({sensor.location || "Kein Standort"})
+                      </SelectItem>
+                    ))}
+                  {sensors.filter(sensor => !selectedSensors.includes(sensor.sensor_id || "")).length === 0 && (
+                    <SelectItem value="no-sensors" disabled>
+                      Keine weiteren Sensoren verfügbar
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={timeRange}
+                onValueChange={setTimeRange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Zeitraum wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeRanges.map((range) => (
+                    <SelectItem key={range.value} value={range.value}>
+                      {range.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-8">Lade Analysedaten...</div>
+          ) : selectedSensors.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Bitte wählen Sie mindestens einen Sensor aus.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="space-y-2">
+                  <CardTitle>Tägliche Entwicklung</CardTitle>
+                  <CardDescription>Vergleich der Durchschnittswerte pro Tag</CardDescription>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Tabs defaultValue="combined" value={chartView} onValueChange={setChartView}>
+                      <TabsList>
+                        <TabsTrigger value="combined">Kombiniert</TabsTrigger>
+                        <TabsTrigger value="separate">Getrennt</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <Select
+                      value={JSON.stringify(selectedMeasurements)}
+                      onValueChange={(value) => setSelectedMeasurements(JSON.parse(value))}
+                    >
+                      <SelectTrigger className="w-[240px]">
+                        <SelectValue>
+                          {selectedMeasurements.length === MEASUREMENTS.length 
+                            ? "Alle Messwerte" 
+                            : `${selectedMeasurements.length} Filter aktiv`}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MEASUREMENTS.map((measurement) => {
+                          const isSelected = selectedMeasurements.includes(measurement.key);
+                          return (
+                            <SelectItem 
+                              key={measurement.key} 
+                              value={JSON.stringify([
+                                ...selectedMeasurements.filter(m => m !== measurement.key), 
+                                ...(isSelected ? [] : [measurement.key])
+                              ])}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-4 w-4 items-center justify-center rounded border border-primary">
+                                  {isSelected && (
+                                    <div className="h-2 w-2 rounded-sm bg-primary" />
+                                  )}
+                                </div>
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: measurement.color }} 
+                                />
+                                <span>{measurement.name}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {chartView === "combined" ? (
+                    <div className="h-[400px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={dailyData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="date" 
+                            domain={[
+                              new Date(new Date().getTime() - parseInt(timeRange) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                              new Date().toISOString().split('T')[0]
+                            ]}
+                            type="category"
+                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                          />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value: number, name: string) => {
+                              const [type, sensorId] = name.split('_');
+                              const measurement = MEASUREMENTS.find(m => m.key === type);
+                              return [`${value.toFixed(1)}${measurement?.unit || ''}`, getSensorName(sensorId)];
+                            }}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                          />
+                          <Legend 
+                            formatter={(value) => {
+                              const [type, sensorId] = value.split('_');
+                              const measurement = MEASUREMENTS.find(m => m.key === type);
+                              return `${getSensorName(sensorId)} - ${measurement?.name}`;
+                            }}
+                          />
+                          {selectedSensors.map((sensorId) => (
+                            MEASUREMENTS.filter(m => selectedMeasurements.includes(m.key)).map((measurement) => (
+                              <Line
+                                key={`${sensorId}_${measurement.key}`}
+                                type="monotone"
+                                dataKey={`${measurement.key}_${sensorId}`}
+                                name={`${measurement.key}_${sensorId}`}
+                                stroke={measurement.color}
+                                dot={false}
+                                connectNulls
+                              />
+                            ))
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6">
+                      {MEASUREMENTS.filter(m => selectedMeasurements.includes(m.key)).map((measurement) => (
+                        <div key={measurement.key}>
+                          <h3 className="font-medium mb-2">{measurement.name}</h3>
+                          {renderChart(
+                            dailyData,
+                            measurement.key,
+                            measurement.name,
+                            measurement.unit
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ai-analysis" className="space-y-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">KI-Analyse der Sensordaten</h2>
+              <p className="text-muted-foreground">
+                Starten Sie KI-gestützte Analysen Ihrer Sensordaten für tiefergehende Einblicke
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={refreshAnalytics}
+                disabled={loadingAnalytics}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingAnalytics ? 'animate-spin' : ''}`} />
+              </Button>
+              <CreateAnalysisDialog sensors={sensors} selectedSensorId={selectedSensors[0]} />
+            </div>
+          </div>
+
+          {loadingAnalytics ? (
+            <div className="text-center py-10">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <p>Lade KI-Analysen...</p>
+            </div>
+          ) : analytics.length === 0 ? (
+            <div className="text-center py-16 border rounded-lg bg-background">
+              <h3 className="text-lg font-medium mb-2">Keine Analysen vorhanden</h3>
+              <p className="text-muted-foreground mb-6">
+                Sie haben noch keine KI-Analysen für Ihre Sensoren erstellt.
+              </p>
+              <CreateAnalysisDialog sensors={sensors} selectedSensorId={selectedSensors[0]} />
+            </div>
+          ) : (
+            <div>
+              {/* Aktive Analysen */}
+              <div className="mb-8">
+                <h3 className="text-lg font-medium mb-4">Laufende und ausstehende Analysen</h3>
+                <div className="space-y-4">
+                  {analytics
+                    .filter(a => a.status === 'pending' || a.status === 'processing')
+                    .map((a) => {
+                      const sensorName = getSensorName(a.sensor_id);
                       return (
-                        <SelectItem 
-                          key={measurement.key} 
-                          value={JSON.stringify([
-                            ...selectedMeasurements.filter(m => m !== measurement.key), 
-                            ...(isSelected ? [] : [measurement.key])
-                          ])}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-4 w-4 items-center justify-center rounded border border-primary">
-                              {isSelected && (
-                                <div className="h-2 w-2 rounded-sm bg-primary" />
-                              )}
-                            </div>
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: measurement.color }} 
-                            />
-                            <span>{measurement.name}</span>
-                          </div>
-                        </SelectItem>
+                        <AnalyticsResults
+                          key={a.analytics_id}
+                          analytics={a}
+                          sensorName={sensorName}
+                          onDelete={deleteAnalysis}
+                        />
                       );
                     })}
-                  </SelectContent>
-                </Select>
+                  {analytics.filter(a => a.status === 'pending' || a.status === 'processing').length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">
+                      Keine laufenden Analysen vorhanden
+                    </p>
+                  )}
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {chartView === "combined" ? (
-                <div className="h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dailyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="date" 
-                        domain={[
-                          new Date(new Date().getTime() - parseInt(timeRange) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                          new Date().toISOString().split('T')[0]
-                        ]}
-                        type="category"
-                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                      />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value: number, name: string) => {
-                          const [type, sensorId] = name.split('_');
-                          const measurement = MEASUREMENTS.find(m => m.key === type);
-                          return [`${value.toFixed(1)}${measurement?.unit || ''}`, getSensorName(sensorId)];
-                        }}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                      />
-                      <Legend 
-                        formatter={(value) => {
-                          const [type, sensorId] = value.split('_');
-                          const measurement = MEASUREMENTS.find(m => m.key === type);
-                          return `${getSensorName(sensorId)} - ${measurement?.name}`;
-                        }}
-                      />
-                      {selectedSensors.map((sensorId) => (
-                        MEASUREMENTS.filter(m => selectedMeasurements.includes(m.key)).map((measurement) => (
-                          <Line
-                            key={`${sensorId}_${measurement.key}`}
-                            type="monotone"
-                            dataKey={`${measurement.key}_${sensorId}`}
-                            name={`${measurement.key}_${sensorId}`}
-                            stroke={measurement.color}
-                            dot={false}
-                            connectNulls
-                          />
-                        ))
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
+
+              {/* Abgeschlossene Analysen */}
+              <Separator />
+              <div className="mt-8">
+                <h3 className="text-lg font-medium mb-4">Abgeschlossene Analysen</h3>
+                <div className="space-y-4">
+                  {analytics
+                    .filter(a => a.status === 'completed' || a.status === 'failed')
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Sortiere nach Datum absteigend
+                    .map((a, index) => {
+                      const sensorName = getSensorName(a.sensor_id);
+                      // Die neueste Analyse (index === 0) wird aufgeklappt angezeigt
+                      return (
+                        <AnalyticsResults
+                          key={a.analytics_id}
+                          analytics={a}
+                          sensorName={sensorName}
+                          onDelete={deleteAnalysis}
+                          isExpanded={index === 0} // Die neueste Analyse ist aufgeklappt
+                        />
+                      );
+                    })}
+                  {analytics.filter(a => a.status === 'completed' || a.status === 'failed').length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">
+                      Keine abgeschlossenen Analysen vorhanden
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <div className="grid gap-6">
-                  {MEASUREMENTS.filter(m => selectedMeasurements.includes(m.key)).map((measurement) => (
-                    <div key={measurement.key}>
-                      <h3 className="font-medium mb-2">{measurement.name}</h3>
-                      {renderChart(
-                        dailyData,
-                        measurement.key,
-                        measurement.name,
-                        measurement.unit
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -6,6 +6,7 @@ import initSensorDataModel from './SensorData.model';
 import initApiKeyModel from './ApiKey.model';
 import initSensorSharingModel from './SensorSharing.model';
 import initFirmwareModel from './Firmware.model';
+import initSensorAnalyticsModel from './SensorAnalytics.model';
 import logger from '../config/logger';
 
 // Function to initialize all models
@@ -17,14 +18,16 @@ export const initModels = (sequelize: Sequelize) => {
   const ApiKey = initApiKeyModel(sequelize);
   const SensorSharing = initSensorSharingModel(sequelize);
   const Firmware = initFirmwareModel(sequelize);
+  const SensorAnalytics = initSensorAnalyticsModel(sequelize);
 
   // Set up associations
-  if (typeof User.associate === 'function') User.associate({ Sensor, SensorSharing });
-  if (typeof Sensor.associate === 'function') Sensor.associate({ User, SensorData, SensorSharing });
+  if (typeof User.associate === 'function') User.associate({ Sensor, SensorSharing, SensorAnalytics });
+  if (typeof Sensor.associate === 'function') Sensor.associate({ User, SensorData, SensorSharing, SensorAnalytics });
   if (typeof SensorData.associate === 'function') SensorData.associate({ Sensor });
   if (typeof ApiKey.associate === 'function') ApiKey.associate({ User });
   if (typeof SensorSharing.associate === 'function') SensorSharing.associate({ User, Sensor });
   if (typeof Firmware.associate === 'function') Firmware.associate({});
+  if (typeof SensorAnalytics.associate === 'function') SensorAnalytics.associate({ User, Sensor });
 
   logger.info('Models initialized');
   return {
@@ -34,6 +37,7 @@ export const initModels = (sequelize: Sequelize) => {
     ApiKey,
     SensorSharing,
     Firmware,
+    SensorAnalytics,
   };
 };
 
@@ -44,6 +48,7 @@ export {
   initApiKeyModel,
   initSensorSharingModel,
   initFirmwareModel,
+  initSensorAnalyticsModel,
 };
 
 export default initModels;

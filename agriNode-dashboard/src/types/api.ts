@@ -118,3 +118,46 @@ export interface CreateApiKeyRequest {
   name: string;
   expiresIn?: number; // Duration in seconds
 }
+
+// SensorAnalytics types
+export enum AnalysisStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
+}
+
+export enum AnalysisType {
+  TREND = 'trend',
+  ANOMALY = 'anomaly',
+  FORECAST = 'forecast'
+}
+
+export interface TimeRange {
+  start: string;
+  end: string;
+}
+
+export interface SensorAnalytics {
+  analytics_id: string;
+  sensor_id: string;
+  user_id: string;
+  status: AnalysisStatus;
+  type: AnalysisType;
+  parameters: {
+    timeRange: TimeRange;
+    [key: string]: any;
+  };
+  result?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAnalyticsRequest {
+  sensor_id: string;
+  type: AnalysisType;
+  parameters: {
+    timeRange: TimeRange;
+    [key: string]: any;
+  };
+}

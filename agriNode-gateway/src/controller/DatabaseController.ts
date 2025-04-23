@@ -2,7 +2,7 @@ import { FindOptions, WhereOptions } from 'sequelize';
 import databaseService from '../services/DatabaseService';
 import logger from '../config/logger';
 import initModels from '../models';
-import { User, Sensor, SensorData, ApiKey, SensorSharing, Firmware, CreateFirmwareInput } from '../types';
+import { User, Sensor, SensorData, ApiKey, SensorSharing, Firmware, CreateFirmwareInput, SensorAnalytics } from '../types';
 
 // Initialize models
 const models = initModels(databaseService.getSequelize());
@@ -338,6 +338,44 @@ export class DatabaseController {
 
   public async deleteFirmware(where: WhereOptions): Promise<number> {
     return this.delete('Firmware', where);
+  }
+
+  // SensorAnalytics model methods
+  public async createSensorAnalytics(data: Partial<SensorAnalytics>): Promise<SensorAnalytics | null> {
+    return this.create<SensorAnalytics>('SensorAnalytics', data);
+  }
+
+  public async findAllSensorAnalytics(options: FindOptions = {}): Promise<SensorAnalytics[]> {
+    return this.findAll<SensorAnalytics>('SensorAnalytics', options);
+  }
+
+  public async findSensorAnalyticsById(id: string): Promise<SensorAnalytics | null> {
+    return this.findById<SensorAnalytics>('SensorAnalytics', id);
+  }
+
+  public async findOneSensorAnalytics(options: FindOptions): Promise<SensorAnalytics | null> {
+    try {
+      return await this.findOne<SensorAnalytics>('SensorAnalytics', options);
+    } catch (error) {
+      logger.error(`Error in DatabaseController.findOneSensorAnalytics: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  public async updateSensorAnalytics(data: Partial<SensorAnalytics>, where: WhereOptions): Promise<[number, SensorAnalytics[]]> {
+    return this.update<SensorAnalytics>('SensorAnalytics', data, where);
+  }
+
+  public async deleteSensorAnalytics(where: WhereOptions): Promise<number> {
+    return this.delete('SensorAnalytics', where);
+  }
+
+  public async findSensorAnalyticsBySensor(sensorId: string): Promise<SensorAnalytics[]> {
+    return this.findAll<SensorAnalytics>('SensorAnalytics', { where: { sensor_id: sensorId } });
+  }
+
+  public async findSensorAnalyticsByUser(userId: string): Promise<SensorAnalytics[]> {
+    return this.findAll<SensorAnalytics>('SensorAnalytics', { where: { user_id: userId } });
   }
 }
 

@@ -13,6 +13,8 @@ import userRoutes from './routes/UserRoutes';
 import sensorSharingRoutes from './routes/SensorSharingRoutes';
 import firmwareRoutes from './routes/FirmwareRoutes';
 import ollamaRoutes from './routes/OllamaRoutes';
+import analyticsRoutes from './routes/SensorAnalyticsRoutes';
+import analyticsProcessorService from './services/AnalyticsProcessorService';
 
 dotenv.config();
 
@@ -40,6 +42,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/sharing', sensorSharingRoutes);
 app.use('/api/firmware', firmwareRoutes);
 app.use('/api/ollama', ollamaRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Swagger route
 
@@ -70,4 +73,17 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(port, () => {
   logger.info(`Server is running on http://localhost:${port}`);
+  
+  // Initialize the analytics processor service
+  logger.info('Initializing AnalyticsProcessorService');
+  
+  // Check for pending analytics on startup
+  analyticsProcessorService.checkForPendingAnalytics();
+  
+  // Set up periodic check for pending analytics
+  const checkInterval = 5 * 60 * 1000; // Check every 5 minutes
+  setInterval(() => {
+    logger.debug('Running scheduled check for pending analytics');
+    analyticsProcessorService.checkForPendingAnalytics();
+  }, checkInterval);
 });
