@@ -3,10 +3,17 @@ import { SensorAnalytics, AnalysisStatus, AnalysisType } from "@/types/api";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertCircle, TrendingUp, AlertTriangle, LineChart, ChevronDown, ChevronUp, FileText, Lightbulb, List, Thermometer, Droplet, Flower, Sun, Cpu } from "lucide-react";
+import { 
+  Trash2, AlertCircle, TrendingUp, AlertTriangle, LineChart, ChevronDown, 
+  ChevronUp, FileText, Lightbulb, List, Thermometer, Droplet, Flower, 
+  Sun, Cpu, Clock, CalendarRange, BarChart4
+} from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface AnalyticsResultsProps {
   analytics: SensorAnalytics;
@@ -20,6 +27,7 @@ export const AnalyticsResults = React.memo(
   ({ analytics, sensorName, onDelete, isExpanded = false }: AnalyticsResultsProps) => {
     const [isOpen, setIsOpen] = useState(isExpanded);
     const [isDetailedAnalysisOpen, setIsDetailedAnalysisOpen] = useState(false);
+    const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(true);
 
     const formatDate = (dateString: string) => {
       return format(new Date(dateString), "dd.MM.yyyy HH:mm", { locale: de });
@@ -50,6 +58,20 @@ export const AnalyticsResults = React.memo(
         case AnalysisStatus.PENDING:
         default:
           return "Ausstehend";
+      }
+    };
+
+    const getStatusProgress = (status: AnalysisStatus) => {
+      switch (status) {
+        case AnalysisStatus.COMPLETED:
+          return 100;
+        case AnalysisStatus.FAILED:
+          return 100;
+        case AnalysisStatus.PROCESSING:
+          return 70;
+        case AnalysisStatus.PENDING:
+        default:
+          return 30;
       }
     };
 
@@ -128,19 +150,125 @@ export const AnalyticsResults = React.memo(
       if (!analytics.parameters?.timeRange) return null;
       
       const { start, end } = analytics.parameters.timeRange;
+      
       return (
-        <div className="text-sm text-muted-foreground flex justify-between items-center">
-          <p>Zeitraum: {formatDate(start)} bis {formatDate(end)}</p>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-            onClick={() => onDelete(analytics.analytics_id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <CalendarRange className="h-3.5 w-3.5" />
+          <span>{formatDate(start)} – {formatDate(end)}</span>
         </div>
       );
+    };
+
+    const renderMetadataInfo = () => {
+      const isCompleted = analytics.status === AnalysisStatus.COMPLETED;
+      const metadata = analytics.result?.metadata;
+      
+      return (
+        <div className="flex flex-row justify-between sm:grid-cols-4 gap-2 mt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <BarChart4 className="h-3.5 w-3.5" />
+            <span>Datenpunkte: {(isCompleted && metadata) ? (metadata.dataPointsAnalyzed || "—") : "—"}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            <span>Erstellt: {formatDate(analytics.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            <span>Analysiert: {(isCompleted && metadata && metadata.analysisTimestamp) ? 
+              formatDate(metadata.analysisTimestamp) : "—"}</span>
+          </div>
+          <div className="flex items-center justify-end sm:justify-start">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(analytics.analytics_id);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Analyse löschen</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      );
+    };
+
+    const renderStatusIndicator = () => {
+      return (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <Badge 
+              variant="secondary" 
+              className={`${getStatusColor(analytics.status)} text-white`}
+            >
+              {getStatusLabel(analytics.status)}
+            </Badge>
+            {(analytics.status === AnalysisStatus.PROCESSING || analytics.status === AnalysisStatus.PENDING) && (
+              <span className="text-xs text-muted-foreground">
+                {analytics.status === AnalysisStatus.PROCESSING ? "Wird bearbeitet..." : "In Warteschlange"}
+              </span>
+            )}
+          </div>
+          
+          {(analytics.status === AnalysisStatus.PROCESSING || analytics.status === AnalysisStatus.PENDING) && (
+            <Progress 
+              value={getStatusProgress(analytics.status)} 
+              className="h-1.5" 
+            />
+          )}
+        </div>
+      );
+    };
+
+    const renderProcessingState = () => {
+      if (analytics.status === AnalysisStatus.FAILED) {
+        return (
+          <div className="flex items-center gap-2 text-red-500 mt-4 p-3 border border-red-200 rounded-md bg-red-50">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Die Analyse konnte nicht abgeschlossen werden.</p>
+              <p className="text-sm">Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.</p>
+            </div>
+          </div>
+        );
+      }
+      
+      if (analytics.status === AnalysisStatus.PENDING) {
+        return (
+          <div className="flex items-center gap-3 text-muted-foreground mt-4 p-3 border border-amber-200 rounded-md bg-amber-50">
+            <Clock className="h-5 w-5 flex-shrink-0 text-amber-500" />
+            <div>
+              <p className="font-medium text-amber-700">Analyse in Warteschlange</p>
+              <p className="text-sm">Die Analyse wurde eingeplant und wird bald gestartet.</p>
+            </div>
+          </div>
+        );
+      }
+      
+      if (analytics.status === AnalysisStatus.PROCESSING) {
+        return (
+          <div className="flex items-center gap-3 text-muted-foreground mt-4 p-3 border border-blue-200 rounded-md bg-blue-50">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 flex-shrink-0"></div>
+            <div>
+              <p className="font-medium text-blue-700">Analyse wird durchgeführt</p>
+              <p className="text-sm">Die KI analysiert Ihre Daten. Dies kann je nach Datenmenge einige Minuten dauern.</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return null;
     };
 
     const renderResult = () => {
@@ -149,26 +277,52 @@ export const AnalyticsResults = React.memo(
       }
 
       return (
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-5">
           {analytics.result.overallSummary && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Zusammenfassung
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">{analytics.result.overallSummary}</p>
-              </CardContent>
-            </Card>
+            <div className="bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-md border border-blue-100">
+              <h3 className="text-sm font-medium flex items-center mb-2">
+                <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                Zusammenfassung
+              </h3>
+              <p className="text-sm leading-relaxed">{analytics.result.overallSummary}</p>
+            </div>
+          )}
+          
+          {analytics.result.recommendations && analytics.result.recommendations.length > 0 && (
+            <Collapsible 
+              open={isRecommendationsOpen}
+              onOpenChange={setIsRecommendationsOpen}
+              className="border rounded-md mt-5"
+            >
+              <CollapsibleTrigger asChild>
+                <div className="flex justify-between items-center p-3 cursor-pointer hover:bg-secondary/50">
+                  <div className="flex items-center">
+                    <Lightbulb className="h-4 w-4 mr-2 text-amber-500" />
+                    <h4 className="font-medium">Empfehlungen</h4>
+                  </div>
+                  <span>
+                    {isRecommendationsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </span>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="p-3 pt-0 space-y-2 bg-amber-50">
+                <ul className="text-sm list-disc pl-5 pt-3 space-y-2">
+                  {Array.isArray(analytics.result.recommendations) ? 
+                    analytics.result.recommendations.map((rec: string, index: number) => (
+                      <li key={index} className="text-amber-900">{rec}</li>
+                    )) : 
+                    <li className="text-amber-900">{analytics.result.recommendations}</li>
+                  }
+                </ul>
+              </CollapsibleContent>
+            </Collapsible>
           )}
           
           {analytics.result.sensorAnalyses && analytics.result.sensorAnalyses.length > 0 && (
             <Collapsible 
               open={isDetailedAnalysisOpen} 
               onOpenChange={setIsDetailedAnalysisOpen}
-              className="border rounded-md"
+              className="border rounded-md mt-2"
             >
               <CollapsibleTrigger asChild>
                 <div className="flex justify-between items-center p-3 cursor-pointer hover:bg-secondary/50">
@@ -181,7 +335,7 @@ export const AnalyticsResults = React.memo(
                   </span>
                 </div>
               </CollapsibleTrigger>
-              <CollapsibleContent className="p-3 pt-0 space-y-2">
+              <CollapsibleContent className="p-3 pt-0 space-y-2 border-t">
                 {analytics.result.sensorAnalyses.map((analysis: any, index: number) => (
                   <div key={index} className="bg-secondary p-3 rounded-md mt-2">
                     <h5 className="font-medium text-sm flex items-center">
@@ -198,7 +352,7 @@ export const AnalyticsResults = React.memo(
                         </h6>
                         <ul className="text-xs list-disc pl-4">
                           {analysis.trends.map((trend: any, tIndex: number) => (
-                            <li key={tIndex}>{trend.description}</li>
+                            <li key={tIndex}>{trend.description} (Konfidenz: {(trend.confidence * 100).toFixed(0)}%)</li>
                           ))}
                         </ul>
                       </div>
@@ -208,11 +362,11 @@ export const AnalyticsResults = React.memo(
                       <div className="mt-2">
                         <h6 className="text-xs font-medium flex items-center">
                           <AlertTriangle className="h-3 w-3 mr-1" />
-                          Anomalien:
+                          Erkannte Anomalien:
                         </h6>
                         <ul className="text-xs list-disc pl-4">
                           {analysis.anomalies.map((anomaly: any, aIndex: number) => (
-                            <li key={aIndex}>{anomaly.description}</li>
+                            <li key={aIndex}>{anomaly.description} (Schwere: {anomaly.severity})</li>
                           ))}
                         </ul>
                       </div>
@@ -222,92 +376,94 @@ export const AnalyticsResults = React.memo(
               </CollapsibleContent>
             </Collapsible>
           )}
-          
-          {analytics.result.recommendations && (
-            <div>
-              <h4 className="font-medium mb-1 flex items-center">
-                <Lightbulb className="h-4 w-4 mr-2" />
-                Empfehlungen
-              </h4>
-              <ul className="text-sm list-disc pl-5">
-                {Array.isArray(analytics.result.recommendations) ? 
-                  analytics.result.recommendations.map((rec: string, index: number) => (
-                    <li key={index}>{rec}</li>
-                  )) : 
-                  <li>{analytics.result.recommendations}</li>
-                }
-              </ul>
-            </div>
-          )}
         </div>
       );
     };
 
+    // Hauptlayout der Komponente
     return (
-      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex justify-between">
-              <div>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-6">
+        <Card className={cn(
+          "overflow-hidden transition-shadow duration-200",
+          isOpen ? "shadow-md" : "hover:shadow-sm",
+          analytics.status === AnalysisStatus.PROCESSING && "border-blue-300 bg-blue-50/30",
+          analytics.status === AnalysisStatus.PENDING && "border-amber-300 bg-amber-50/30"
+        )}>
+          <CardHeader className={cn(
+            "pb-3",
+            (analytics.status === AnalysisStatus.PROCESSING || analytics.status === AnalysisStatus.PENDING) && "pb-2"
+          )}>
+            {/* Kopfzeile mit Analyse-Typ, Sensorname und Status */}
+            <div className="flex flex-col">
+              <div className="flex items-start justify-between">
                 <CollapsibleTrigger asChild>
-                  <CardTitle className="text-lg flex items-center cursor-pointer group">
-                    {getAnalysisTypeIcon(analytics.type)}
-                    {getAnalysisTypeLabel(analytics.type)}
-                    <span className="ml-2 text-muted-foreground group-hover:text-foreground transition-colors">
-                      {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </span>
-                  </CardTitle>
+                  <div className="flex-1 flex justify-between items-center cursor-pointer group">
+                    <div className="flex-1 flex items-center">
+                      <CardTitle className="text-lg flex items-center">
+                        {getAnalysisTypeIcon(analytics.type)}
+                        {getAnalysisTypeLabel(analytics.type)}
+                      </CardTitle>
+                      <span className="ml-2 text-muted-foreground group-hover:text-foreground transition-colors">
+                        {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </span>
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={`${getStatusColor(analytics.status)} text-white ml-3`}
+                    >
+                      {getStatusLabel(analytics.status)}
+                    </Badge>
+                  </div>
                 </CollapsibleTrigger>
-                <CardDescription>
-                  {sensorName}
-                </CardDescription>
+                
+                {(analytics.status === AnalysisStatus.PROCESSING || analytics.status === AnalysisStatus.PENDING) && (
+                  <div className="w-full mt-1.5">
+                    <Progress 
+                      value={getStatusProgress(analytics.status)} 
+                      className="h-1.5" 
+                    />
+                    <div className="flex justify-end mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {analytics.status === AnalysisStatus.PROCESSING ? "Wird bearbeitet..." : "In Warteschlange"}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <Badge variant="secondary" className={`${getStatusColor(analytics.status)} text-white`}>
-                {getStatusLabel(analytics.status)}
-              </Badge>
+              
+              <CardDescription className="mt-1">
+                <div className="flex items-center gap-2">
+                  <span>{sensorName}</span>
+                  {renderTimeRange()}
+                </div>
+              </CardDescription>
             </div>
             
-            <div className="mt-2">
-              <div className="flex flex-wrap gap-3 justify-between items-center">
-                <div className="text-xs text-muted-foreground">
-                  Erstellt: {formatDate(analytics.created_at)}
-                </div>
-                <div className="text-xs flex items-center bg-secondary text-muted-foreground px-2 py-1 rounded-md">
-                  <Cpu className="h-3 w-3 mr-1" />
-                  <span title={getUsedModel()}>
-                    {getUsedModel().length > 20 ? `${getUsedModel().substring(0, 17)}...` : getUsedModel()}
-                  </span>
-                </div>
-              </div>
+            {/* Info-Bar mit Modell in einer horizontal angeordneten leiste */}
+            <div className="mt-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-xs inline-flex items-center bg-secondary text-muted-foreground px-2 py-1 rounded-md">
+                      <Cpu className="h-3 w-3 mr-1" />
+                      <span>
+                        {getUsedModel().length > 20 ? `${getUsedModel().substring(0, 17)}...` : getUsedModel()}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Verwendetes Modell: {getUsedModel()}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             
-            {renderTimeRange()}
+            {renderMetadataInfo()}
           </CardHeader>
 
           <CollapsibleContent>
             <CardContent className="pt-0">
-              {analytics.status === AnalysisStatus.FAILED && (
-                <div className="flex items-center gap-2 text-red-500 mt-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <p className="text-sm">Die Analyse konnte nicht abgeschlossen werden.</p>
-                </div>
-              )}
-              
-              {analytics.status === AnalysisStatus.PENDING && (
-                <div className="text-sm text-muted-foreground mt-2">
-                  <p>Die Analyse steht in der Warteschlange und wird bald gestartet.</p>
-                </div>
-              )}
-              
-              {analytics.status === AnalysisStatus.PROCESSING && (
-                <div className="text-sm text-muted-foreground mt-2">
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    <p>Die Analyse wird gerade durchgeführt...</p>
-                  </div>
-                </div>
-              )}
-              
+              {renderProcessingState()}
               {renderResult()}
             </CardContent>
           </CollapsibleContent>
@@ -315,9 +471,8 @@ export const AnalyticsResults = React.memo(
       </Collapsible>
     );
   },
-  // Prüfe, ob die Props tatsächlich geändert wurden, bevor neu gerendert wird
   (prevProps, nextProps) => {
-    // Nur neu rendern, wenn sich die relevanten Props geändert haben
+    // Prüfe, ob die Props tatsächlich geändert wurden, bevor neu gerendert wird
     return (
       prevProps.analytics.analytics_id === nextProps.analytics.analytics_id &&
       prevProps.analytics.status === nextProps.analytics.status &&
