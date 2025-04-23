@@ -199,7 +199,41 @@ const ollamaController = new OllamaController();
  *               properties:
  *                 error:
  *                   type: string
+ * 
+ * /api/ollama/status:
+ *   get:
+ *     tags:
+ *       - Ollama
+ *     summary: Prüft den Status der Ollama-Verbindung
+ *     description: Überprüft, ob eine Verbindung zum Ollama-Dienst hergestellt werden kann
+ *     responses:
+ *       200:
+ *         description: Erfolgreiche Statusprüfung
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [connected, disconnected]
+ *                   description: Status der Verbindung zum Ollama-Dienst
+ *                 message:
+ *                   type: string
+ *                   description: Detaillierte Statusnachricht
+ *       500:
+ *         description: Serverfehler bei der Statusprüfung
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
  */
 router.post('/analyze-sensor-data', ollamaController.analyzeSensorData);
+router.get('/status', ollamaController.checkStatus);
 
-export default router; 
+export default router;

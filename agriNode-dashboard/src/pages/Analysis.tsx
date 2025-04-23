@@ -3,17 +3,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X, RefreshCw } from "lucide-react";
+import { X, RefreshCw, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sensor, SensorData } from "@/types/api";
 import { useSensors } from "@/contexts/SensorsContext";
 import { useSensorData } from "@/contexts/SensorDataContext";
 import { useAnalytics } from "@/contexts/AnalyticsContext";
+import { useOllama } from "@/contexts/OllamaContext";
 import { useSearchParams } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { CreateAnalysisDialog } from "@/components/CreateAnalysisDialog";
 import { AnalyticsResults } from "@/components/AnalyticsResults";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Definiere die verfügbaren Messwerte
 const MEASUREMENTS = [
@@ -34,6 +36,7 @@ export const Analysis = () => {
   const { sensors } = useSensors();
   const { getSensorDataByTimeRange } = useSensorData();
   const { analytics, loadingAnalytics, deleteAnalysis, refreshAnalytics } = useAnalytics();
+  const { isConnected, statusMessage, loading: loadingOllamaStatus, checkOllamaStatus } = useOllama();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSensors, setSelectedSensors] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState<string>("7d");
@@ -497,7 +500,10 @@ export const Analysis = () => {
               <Button 
                 variant="outline" 
                 size="icon"
-                onClick={refreshAnalytics}
+                onClick={() => {
+                  refreshAnalytics();
+                  checkOllamaStatus();
+                }}
                 disabled={loadingAnalytics}
               >
                 <RefreshCw className={`h-4 w-4 ${loadingAnalytics ? 'animate-spin' : ''}`} />
@@ -505,6 +511,22 @@ export const Analysis = () => {
               <CreateAnalysisDialog sensors={sensors} selectedSensorId={selectedSensors[0]} />
             </div>
           </div>
+
+          {!isConnected && !loadingOllamaStatus && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>{statusMessage || "Keine Verbindung zum Ollama-Dienst möglich. KI-Analysen sind derzeit nicht verfügbar."}</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={checkOllamaStatus}
+                >
+                  Erneut prüfen
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {loadingAnalytics ? (
             <div className="text-center py-10">

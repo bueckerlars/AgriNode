@@ -60,6 +60,23 @@ export class OllamaService {
         this.ollama = Ollama;
     }
 
+    async checkStatus(): Promise<{status: 'connected' | 'disconnected', message: string}> {
+        try {
+            // Versuche eine einfache Abfrage an den Ollama-Dienst, um zu prüfen, ob er erreichbar ist
+            await this.ollama.list();
+            return {
+                status: 'connected',
+                message: 'Verbindung zum Ollama-Dienst hergestellt'
+            };
+        } catch (error) {
+            console.error('Error connecting to Ollama service:', error);
+            return {
+                status: 'disconnected',
+                message: 'Verbindung zum Ollama-Dienst konnte nicht hergestellt werden'
+            };
+        }
+    }
+
     async analyzeSensorData(request: SensorDataAnalysisRequest): Promise<AnalysisResponse> {
         try {
             const availableSensorTypes = this.getAvailableSensorTypes(request.sensorData);

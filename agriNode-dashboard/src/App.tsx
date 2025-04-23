@@ -11,6 +11,7 @@ import { UsersProvider } from "@/contexts/UsersContext";
 import { SensorSharingProvider } from "@/contexts/SensorSharingContext";
 import { FirmwareProvider } from "@/contexts/FirmwareContext";
 import { AnalyticsProvider } from "@/contexts/AnalyticsContext";
+import { OllamaProvider } from "@/contexts/OllamaContext";
 
 // Importiere den API-Client, damit die Axios-Interceptoren initialisiert werden
 import '@/api/apiClient';
@@ -31,11 +32,13 @@ const App = () => (
                 <SensorSharingProvider>
                   <FirmwareProvider>
                     <AnalyticsProvider>
-                      <SidebarProvider>
-                        <Toaster />
+                      <OllamaProvider>
+                        <SidebarProvider>
+                          <Toaster />
 
-                        <RouterProvider router={router} />
-                      </SidebarProvider>
+                          <RouterProvider router={router} />
+                        </SidebarProvider>
+                      </OllamaProvider>
                     </AnalyticsProvider>
                   </FirmwareProvider>
                 </SensorSharingProvider>

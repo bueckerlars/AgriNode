@@ -9,6 +9,19 @@ export class OllamaController {
         this.ollamaService = new OllamaService();
     }
 
+    checkStatus = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const status = await this.ollamaService.checkStatus();
+            res.status(200).json(status);
+        } catch (error) {
+            console.error('Fehler bei der Statusprüfung des Ollama-Dienstes:', error);
+            res.status(500).json({ 
+                status: 'disconnected', 
+                message: 'Ein Fehler ist bei der Statusprüfung aufgetreten'
+            });
+        }
+    }
+
     analyzeSensorData = async (req: Request, res: Response): Promise<void> => {
         try {
             const analysisRequest = req.body as SensorDataAnalysisRequest;
@@ -42,4 +55,4 @@ export class OllamaController {
 
         return true;
     }
-} 
+}

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Sensor, AnalysisType, TimeRange } from "@/types/api";
 import { useAnalytics } from "@/contexts/AnalyticsContext";
+import { useOllama } from "@/contexts/OllamaContext";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -26,8 +27,9 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CreateAnalysisDialogProps {
   sensors: Sensor[];
@@ -51,6 +53,7 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { createAnalysis } = useAnalytics();
+  const { isConnected, statusMessage, loading: loadingOllamaStatus } = useOllama();
 
   const handleSubmit = async () => {
     if (!sensorId || !analysisType || !startDate || !endDate) {
@@ -91,7 +94,7 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
       if (!newOpen) resetForm();
     }}>
       <DialogTrigger asChild>
-        <Button variant="default">
+        <Button variant="default" disabled={!isConnected && !loadingOllamaStatus}>
           Neue Analyse starten
         </Button>
       </DialogTrigger>
@@ -103,6 +106,16 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
             Wählen Sie einen Sensor, den Analysetyp und den Zeitraum aus.
           </DialogDescription>
         </DialogHeader>
+        
+        {!isConnected && !loadingOllamaStatus && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {statusMessage || "Keine Verbindung zum Ollama-Dienst möglich. Bitte überprüfen Sie Ihre Verbindung."}
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <label htmlFor="sensor" className="col-span-4">
@@ -213,7 +226,7 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
           <Button 
             type="submit" 
             onClick={handleSubmit} 
-            disabled={!sensorId || !analysisType || !startDate || !endDate || isSubmitting}
+            disabled={!sensorId || !analysisType || !startDate || !endDate || isSubmitting || !isConnected}
           >
             {isSubmitting ? "Wird erstellt..." : "Analyse erstellen"}
           </Button>
