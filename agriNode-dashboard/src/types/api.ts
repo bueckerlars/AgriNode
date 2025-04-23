@@ -158,6 +158,7 @@ export interface CreateAnalyticsRequest {
   type: AnalysisType;
   parameters: {
     timeRange: TimeRange;
+    model?: string; // Optional model parameter to specify which LLM to use
     [key: string]: any;
   };
 }

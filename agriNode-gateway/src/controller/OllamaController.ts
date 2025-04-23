@@ -22,6 +22,16 @@ export class OllamaController {
         }
     }
 
+    getAvailableModels = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const models = await this.ollamaService.getAvailableModels();
+            res.status(200).json({ models });
+        } catch (error) {
+            console.error('Fehler beim Abrufen der verfügbaren Modelle:', error);
+            res.status(500).json({ error: 'Fehler beim Abrufen der verfügbaren Modelle' });
+        }
+    }
+
     analyzeSensorData = async (req: Request, res: Response): Promise<void> => {
         try {
             const analysisRequest = req.body as SensorDataAnalysisRequest;

@@ -22,7 +22,7 @@ type SensorTypeInfoMap = {
 
 export class OllamaService {
     private ollama: typeof Ollama;
-    private readonly MODEL = 'deepseek-r1:8b';
+    private readonly DEFAULT_MODEL = 'deepseek-r1:8b';
     private readonly SENSOR_TYPES: SensorType[] = ['temperature', 'humidity', 'brightness', 'soilMoisture'];
 
     private readonly sensorTypeInfo: SensorTypeInfoMap = {
@@ -62,7 +62,6 @@ export class OllamaService {
 
     async checkStatus(): Promise<{status: 'connected' | 'disconnected', message: string}> {
         try {
-            // Versuche eine einfache Abfrage an den Ollama-Dienst, um zu prüfen, ob er erreichbar ist
             await this.ollama.list();
             return {
                 status: 'connected',
@@ -77,20 +76,38 @@ export class OllamaService {
         }
     }
 
+    async getAvailableModels(): Promise<{ name: string, description: string }[]> {
+        try {
+            const models = await this.ollama.list();
+            return models.models.map(model => ({
+                name: model.name,
+                description: model.details?.parameter_size 
+                    ? `${model.name} (${model.details.parameter_size})`
+                    : model.name
+            }));
+        } catch (error) {
+            console.error('Error fetching available models:', error);
+            return [
+                { name: this.DEFAULT_MODEL, description: this.DEFAULT_MODEL }
+            ];
+        }
+    }
+
     async analyzeSensorData(request: SensorDataAnalysisRequest): Promise<AnalysisResponse> {
         try {
             const availableSensorTypes = this.getAvailableSensorTypes(request.sensorData);
+            const model = request.model || this.DEFAULT_MODEL;
             
             const sensorAnalyses = await Promise.all(
                 availableSensorTypes.map(sensorType => 
-                    this.analyzeSingleSensorType(request, sensorType as SensorType)
+                    this.analyzeSingleSensorType(request, sensorType as SensorType, model)
                 )
             );
 
-            const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes);
+            const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes, model);
 
             const response = await this.ollama.generate({
-                model: this.MODEL,
+                model: model,
                 prompt: this.buildOverallSummaryPrompt(sensorAnalyses, correlations),
                 format: {
                     type: "object",
@@ -110,7 +127,7 @@ export class OllamaService {
                 sensorAnalyses,
                 correlations,
                 metadata: {
-                    modelUsed: this.MODEL,
+                    modelUsed: model,
                     analysisTimestamp: new Date().toISOString(),
                     dataPointsAnalyzed: request.sensorData.length * availableSensorTypes.length
                 }
@@ -137,7 +154,8 @@ export class OllamaService {
 
     private async analyzeSingleSensorType(
         request: SensorDataAnalysisRequest,
-        sensorType: SensorType
+        sensorType: SensorType,
+        model: string
     ): Promise<SensorTypeAnalysis> {
         const sensorData: SingleSensorData[] = request.sensorData
             .map(dataPoint => ({
@@ -149,7 +167,7 @@ export class OllamaService {
         const prompt = this.buildSingleSensorAnalysisPrompt(sensorData, sensorType, request.analysisType);
         
         const response = await this.ollama.generate({
-            model: this.MODEL,
+            model: model,
             prompt,
             format: {
                 type: "object",
@@ -221,7 +239,8 @@ export class OllamaService {
 
     private async analyzeCorrelations(
         sensorData: SensorDataPoint[],
-        sensorTypes: string[]
+        sensorTypes: string[],
+        model: string
     ) {
         if (sensorTypes.length < 2) {
             return [];
@@ -230,7 +249,7 @@ export class OllamaService {
         const prompt = this.buildCorrelationAnalysisPrompt(sensorData, sensorTypes);
         
         const response = await this.ollama.generate({
-            model: this.MODEL,
+            model: model,
             prompt,
             format: {
                 type: "object",

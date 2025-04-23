@@ -134,6 +134,12 @@ export class AnalyticsProcessorService {
                 } else {
                     logger.warn(`Invalid analysis type '${analytics.type}', defaulting to 'trend'`);
                 }
+                
+                // Extrahiere das ausgewählte Modell aus den Parametern, falls vorhanden
+                const selectedModel = parameters?.model;
+                if (selectedModel) {
+                    logger.debug(`Using selected model: ${selectedModel}`);
+                }
 
                 // Bereite die Analyse-Anfrage vor
                 const analysisRequest: SensorDataAnalysisRequest = {
@@ -142,13 +148,15 @@ export class AnalyticsProcessorService {
                         start: timeRange.start,
                         end: timeRange.end
                     },
-                    analysisType
+                    analysisType,
+                    model: selectedModel // Füge das ausgewählte Modell hinzu
                 };
 
                 logger.debug(`Sending analysis request to OllamaAPI: ${JSON.stringify({
                     type: analysisRequest.analysisType,
                     dataPoints: analysisRequest.sensorData.length,
-                    timeRange: analysisRequest.timeRange
+                    timeRange: analysisRequest.timeRange,
+                    model: analysisRequest.model || 'default'
                 })}`);
 
                 // Führe die Analyse mit OllamaAPI durch

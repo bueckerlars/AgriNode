@@ -46,6 +46,7 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
   const [open, setOpen] = useState(false);
   const [sensorId, setSensorId] = useState<string>(selectedSensorId || "");
   const [analysisType, setAnalysisType] = useState<AnalysisType>(AnalysisType.TREND);
+  const [selectedModel, setSelectedModel] = useState<string>("default");
   const [startDate, setStartDate] = useState<Date | undefined>(
     new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
   );
@@ -53,7 +54,7 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { createAnalysis } = useAnalytics();
-  const { isConnected, statusMessage, loading: loadingOllamaStatus } = useOllama();
+  const { isConnected, statusMessage, loading: loadingOllamaStatus, availableModels, loadingModels } = useOllama();
 
   const handleSubmit = async () => {
     if (!sensorId || !analysisType || !startDate || !endDate) {
@@ -68,7 +69,10 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
         end: endDate.toISOString()
       };
 
-      const result = await createAnalysis(sensorId, analysisType, timeRange);
+      // If the selected model is "default" or empty, pass undefined to use the server's default model
+      const modelToUse = selectedModel === "default" || selectedModel === "" ? undefined : selectedModel;
+      
+      const result = await createAnalysis(sensorId, analysisType, timeRange, modelToUse);
       
       if (result) {
         setOpen(false);
@@ -84,6 +88,7 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
       setSensorId("");
     }
     setAnalysisType(AnalysisType.TREND);
+    setSelectedModel("default");
     setStartDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
     setEndDate(new Date());
   };
@@ -157,6 +162,29 @@ export function CreateAnalysisDialog({ sensors, selectedSensorId }: CreateAnalys
                       <span>{type.label}</span>
                       <span className="text-xs text-muted-foreground">{type.description}</span>
                     </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <label htmlFor="model" className="col-span-4">
+              KI-Modell
+            </label>
+            <Select
+              value={selectedModel}
+              onValueChange={setSelectedModel}
+              disabled={loadingModels || availableModels.length === 0}
+            >
+              <SelectTrigger className="col-span-4">
+                <SelectValue placeholder={loadingModels ? "Modelle werden geladen..." : "Modell auswählen (optional)"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Standard-Modell</SelectItem>
+                {availableModels.map((model) => (
+                  <SelectItem key={model.name} value={model.name}>
+                    {model.description}
                   </SelectItem>
                 ))}
               </SelectContent>

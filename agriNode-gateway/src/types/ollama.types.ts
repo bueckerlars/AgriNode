@@ -17,6 +17,7 @@ export interface SensorDataAnalysisRequest {
     sensorData: SensorDataPoint[];
     timeRange: TimeRange;
     analysisType: 'trend' | 'anomaly' | 'forecast';
+    model?: string; // Optional model to use for analysis
 }
 
 export interface SensorTypeAnalysis {
@@ -48,4 +49,4 @@ export interface AnalysisResponse {
         analysisTimestamp: string;
         dataPointsAnalyzed: number;
     };
-} 
+}

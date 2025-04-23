@@ -67,6 +67,9 @@ const ollamaController = new OllamaController();
  *           type: string
  *           enum: [trend, anomaly, forecast]
  *           description: Art der gewünschten Analyse
+ *         model:
+ *           type: string
+ *           description: Das zu verwendende KI-Modell (optional)
  * 
  *     SensorTypeAnalysis:
  *       type: object
@@ -232,8 +235,44 @@ const ollamaController = new OllamaController();
  *                   type: string
  *                 message:
  *                   type: string
+ * 
+ * /api/ollama/models:
+ *   get:
+ *     tags:
+ *       - Ollama
+ *     summary: Liste der verfügbaren Modelle
+ *     description: Ruft eine Liste aller verfügbaren KI-Modelle ab
+ *     responses:
+ *       200:
+ *         description: Erfolgreicher Abruf der verfügbaren Modelle
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 models:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         description: Name des Modells
+ *                       description:
+ *                         type: string
+ *                         description: Beschreibung des Modells
+ *       500:
+ *         description: Serverfehler beim Abrufen der Modelle
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
  */
 router.post('/analyze-sensor-data', ollamaController.analyzeSensorData);
 router.get('/status', ollamaController.checkStatus);
+router.get('/models', ollamaController.getAvailableModels);
 
 export default router;

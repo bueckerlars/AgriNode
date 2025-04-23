@@ -5,6 +5,15 @@ interface OllamaStatus {
   message: string;
 }
 
+interface OllamaModel {
+  name: string;
+  description: string;
+}
+
+interface OllamaModelsResponse {
+  models: OllamaModel[];
+}
+
 const baseUrl = '/ollama';
 
 export const ollamaApi = {
@@ -19,6 +28,17 @@ export const ollamaApi = {
         status: 'disconnected',
         message: 'Verbindung zum Ollama-Dienst konnte nicht hergestellt werden'
       };
+    }
+  },
+  
+  // Holt eine Liste der verfügbaren Modelle
+  getAvailableModels: async (): Promise<OllamaModel[]> => {
+    try {
+      const response = await apiClient.get<OllamaModelsResponse>(`${baseUrl}/models`);
+      return response.data.models || [];
+    } catch (error) {
+      console.error('Fehler beim Abrufen der verfügbaren Modelle:', error);
+      return [];
     }
   }
 };

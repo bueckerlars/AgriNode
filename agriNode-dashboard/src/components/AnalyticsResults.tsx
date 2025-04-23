@@ -3,7 +3,7 @@ import { SensorAnalytics, AnalysisStatus, AnalysisType } from "@/types/api";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertCircle, TrendingUp, AlertTriangle, LineChart, ChevronDown, ChevronUp, FileText, Lightbulb, List, Thermometer, Droplet, Flower, Sun } from "lucide-react";
+import { Trash2, AlertCircle, TrendingUp, AlertTriangle, LineChart, ChevronDown, ChevronUp, FileText, Lightbulb, List, Thermometer, Droplet, Flower, Sun, Cpu } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -107,6 +107,21 @@ export const AnalyticsResults = React.memo(
         default:
           return null;
       }
+    };
+
+    const getUsedModel = () => {
+      // Bei abgeschlossenen Analysen: Zeige das tatsächlich verwendete Modell aus den Metadaten
+      if (analytics.status === AnalysisStatus.COMPLETED && analytics.result?.metadata?.modelUsed) {
+        return analytics.result.metadata.modelUsed;
+      }
+      
+      // Bei laufenden oder ausstehenden Analysen: Zeige das ausgewählte Modell aus den Parametern
+      if (analytics.parameters?.model) {
+        return analytics.parameters.model;
+      }
+      
+      // Fallback, wenn kein Modell angegeben ist
+      return "Standard-Modell";
     };
 
     const renderTimeRange = () => {
@@ -253,8 +268,16 @@ export const AnalyticsResults = React.memo(
             </div>
             
             <div className="mt-2">
-              <div className="text-xs text-muted-foreground">
-                Erstellt: {formatDate(analytics.created_at)}
+              <div className="flex flex-wrap gap-3 justify-between items-center">
+                <div className="text-xs text-muted-foreground">
+                  Erstellt: {formatDate(analytics.created_at)}
+                </div>
+                <div className="text-xs flex items-center bg-secondary text-muted-foreground px-2 py-1 rounded-md">
+                  <Cpu className="h-3 w-3 mr-1" />
+                  <span title={getUsedModel()}>
+                    {getUsedModel().length > 20 ? `${getUsedModel().substring(0, 17)}...` : getUsedModel()}
+                  </span>
+                </div>
               </div>
             </div>
             

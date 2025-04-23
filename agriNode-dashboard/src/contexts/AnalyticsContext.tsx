@@ -8,17 +8,18 @@ import { isEqual } from 'lodash';
 interface AnalyticsContextProps {
   analytics: SensorAnalytics[];
   loadingAnalytics: boolean;
-  createAnalysis: (sensorId: string, type: AnalysisType, timeRange: TimeRange) => Promise<SensorAnalytics | null>;
+  createAnalysis: (sensorId: string, type: AnalysisType, timeRange: TimeRange, model?: string) => Promise<SensorAnalytics | null>;
   deleteAnalysis: (analyticsId: string) => Promise<boolean>;
   refreshAnalytics: () => Promise<void>;
   getAnalyticsForSensor: (sensorId: string) => Promise<SensorAnalytics[]>;
 }
 
-const AnalyticsContext = createContext<AnalyticsContextProps | null>(null);
+// Change to undefined instead of null as the default value
+const AnalyticsContext = createContext<AnalyticsContextProps | undefined>(undefined);
 
 export const useAnalytics = () => {
   const context = useContext(AnalyticsContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAnalytics must be used within an AnalyticsProvider');
   }
   return context;
@@ -121,13 +122,14 @@ export const AnalyticsProvider = ({ children }: { children: ReactNode }) => {
     await loadAnalytics();
   }, [user, authToken]);
 
-  const createAnalysis = async (sensorId: string, type: AnalysisType, timeRange: TimeRange): Promise<SensorAnalytics | null> => {
+  const createAnalysis = async (sensorId: string, type: AnalysisType, timeRange: TimeRange, model?: string): Promise<SensorAnalytics | null> => {
     try {
       const request: CreateAnalyticsRequest = {
         sensor_id: sensorId,
         type,
         parameters: {
-          timeRange
+          timeRange,
+          model
         }
       };
       
