@@ -75,11 +75,17 @@ export class OllamaService {
             const response = await this.ollama.generate({
                 model: this.MODEL,
                 prompt: this.buildOverallSummaryPrompt(sensorAnalyses, correlations),
-                format: 'json',
-                system: 'You are an expert in analyzing agricultural sensor data. Create a comprehensive summary of the individual analyses and provide an overall assessment. Respond ONLY with a JSON object in German.',
-                template: `{
-                    "summary": "Zusammenfassende Analyse der Umweltbedingungen"
-                }`
+                format: {
+                    type: "object",
+                    properties: {
+                        summary: {
+                            type: "string",
+                            description: "Zusammenfassende Analyse der Umweltbedingungen"
+                        }
+                    },
+                    required: ["summary"]
+                },
+                system: 'You are an expert in analyzing agricultural sensor data. Create a comprehensive summary of the individual analyses and provide an overall assessment. Respond ONLY with a JSON object in German.'
             });
 
             return {
@@ -128,28 +134,66 @@ export class OllamaService {
         const response = await this.ollama.generate({
             model: this.MODEL,
             prompt,
-            format: 'json',
-            system: `You are an expert in analyzing ${sensorType} data in agriculture. Analyze the data and provide detailed insights. Respond ONLY with a JSON object in German.`,
-            template: `{
-                "summary": "Zusammenfassende Analyse der ${sensorType}-Daten",
-                "trends": [
-                    {
-                        "type": "steigend|fallend|stabil",
-                        "description": "Detaillierte Beschreibung des Trends",
-                        "confidence": 0.95
+            format: {
+                type: "object",
+                properties: {
+                    summary: {
+                        type: "string",
+                        description: `Zusammenfassende Analyse der ${sensorType}-Daten`
+                    },
+                    trends: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                type: {
+                                    type: "string",
+                                    description: "steigend|fallend|stabil"
+                                },
+                                description: {
+                                    type: "string",
+                                    description: "Detaillierte Beschreibung des Trends"
+                                },
+                                confidence: {
+                                    type: "number",
+                                    description: "Confidence level"
+                                }
+                            },
+                            required: ["type", "description", "confidence"]
+                        }
+                    },
+                    anomalies: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                timestamp: {
+                                    type: "string",
+                                    description: "Timestamp of anomaly"
+                                },
+                                description: {
+                                    type: "string",
+                                    description: "Beschreibung der Anomalie"
+                                },
+                                severity: {
+                                    type: "string",
+                                    description: "low|medium|high"
+                                }
+                            },
+                            required: ["timestamp", "description", "severity"]
+                        }
+                    },
+                    recommendations: {
+                        type: "array",
+                        items: {
+                            type: "string",
+                            description: "Konkrete Handlungsempfehlung basierend auf den Analyseergebnissen"
+                        }
                     }
-                ],
-                "anomalies": [
-                    {
-                        "timestamp": "2024-03-21T10:00:00Z",
-                        "description": "Beschreibung der Anomalie",
-                        "severity": "low|medium|high"
-                    }
-                ],
-                "recommendations": [
-                    "Konkrete Handlungsempfehlung basierend auf den Analyseergebnissen"
-                ]
-            }`
+                },
+                required: ["summary", "trends", "anomalies", "recommendations"]
+            },
+            system: `You are an expert in analyzing ${sensorType} data in agriculture. Analyze the data and provide detailed insights. Respond ONLY with a JSON object in German.`
         });
 
         return {
@@ -171,17 +215,37 @@ export class OllamaService {
         const response = await this.ollama.generate({
             model: this.MODEL,
             prompt,
-            format: 'json',
-            system: 'You are an expert in analyzing relationships between different environmental factors in agriculture. Respond ONLY with a JSON object in German.',
-            template: `{
-                "correlations": [
-                    {
-                        "description": "Beschreibung des Zusammenhangs zwischen den Messgrößen",
-                        "sensorTypes": ["sensorTyp1", "sensorTyp2"],
-                        "confidence": 0.95
+            format: {
+                type: "object",
+                properties: {
+                    correlations: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                description: {
+                                    type: "string",
+                                    description: "Beschreibung des Zusammenhangs zwischen den Messgrößen"
+                                },
+                                sensorTypes: {
+                                    type: "array",
+                                    items: {
+                                        type: "string",
+                                        description: "Sensor types involved in correlation"
+                                    }
+                                },
+                                confidence: {
+                                    type: "number",
+                                    description: "Confidence level"
+                                }
+                            },
+                            required: ["description", "sensorTypes", "confidence"]
+                        }
                     }
-                ]
-            }`
+                },
+                required: ["correlations"]
+            },
+            system: 'You are an expert in analyzing relationships between different environmental factors in agriculture. Respond ONLY with a JSON object in German.'
         });
 
         return JSON.parse(response.response).correlations;
@@ -276,4 +340,4 @@ export class OllamaService {
             The response MUST exactly match the provided JSON format and be in German.
         `;
     }
-} 
+}
