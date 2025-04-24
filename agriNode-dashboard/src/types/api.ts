@@ -137,6 +137,9 @@ export interface ProgressStep {
   index: number;
   description: string;
   status: 'pending' | 'active' | 'completed' | 'failed';
+  startTime?: string;  // ISO-String für Frontend-Kompatibilität
+  endTime?: string;    // ISO-String für Frontend-Kompatibilität
+  duration?: number;   // Dauer in Millisekunden
 }
 
 export interface ProgressInfo {

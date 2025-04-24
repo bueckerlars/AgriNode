@@ -15,6 +15,9 @@ export interface ProgressStep {
   index: number;
   description: string;
   status: 'pending' | 'active' | 'completed' | 'failed';
+  startTime?: Date;   // Zeitpunkt, wann der Schritt gestartet wurde
+  endTime?: Date;     // Zeitpunkt, wann der Schritt abgeschlossen wurde
+  duration?: number;  // Dauer in Millisekunden
 }
 
 export interface ProgressInfo {

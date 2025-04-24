@@ -56,6 +56,24 @@ export const AnalyticsResults = React.memo(
       return format(new Date(dateString), "dd.MM.yyyy HH:mm", { locale: de });
     };
 
+    const formatTime = (dateString?: string) => {
+      if (!dateString) return "—";
+      return format(new Date(dateString), "HH:mm:ss", { locale: de });
+    };
+    
+    const formatDuration = (durationMs?: number) => {
+      if (!durationMs) return "—";
+      
+      const seconds = Math.floor(durationMs / 1000);
+      if (seconds < 60) {
+        return `${seconds} Sek.`;
+      }
+      
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')} Min.`;
+    };
+
     const getStatusColor = (status: AnalysisStatus) => {
       switch (status) {
         case AnalysisStatus.COMPLETED:
@@ -288,10 +306,30 @@ export const AnalyticsResults = React.memo(
               {analytics.progress.steps.map((step) => (
                 <div 
                   key={step.index} 
-                  className={`flex items-center space-x-2 p-2 border rounded-md ${getStepStatusClass(step)}`}
+                  className={`flex flex-col p-2 border rounded-md ${getStepStatusClass(step)}`}
                 >
-                  {getStepStatusIcon(step)}
-                  <span className="text-sm">{step.description}</span>
+                  <div className="flex items-center space-x-2">
+                    {getStepStatusIcon(step)}
+                    <span className="text-sm font-medium">{step.description}</span>
+                  </div>
+                  
+                  {/* Zeit- und Dauer-Informationen anzeigen */}
+                  {(step.startTime || step.endTime || step.duration) && (
+                    <div className="mt-1.5 ml-6 text-xs grid grid-cols-3 gap-2">
+                      <div>
+                        <span className="text-muted-foreground">Start: </span>
+                        <span>{formatTime(step.startTime)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Ende: </span>
+                        <span>{formatTime(step.endTime)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Dauer: </span>
+                        <span>{formatDuration(step.duration)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </CollapsibleContent>

@@ -116,8 +116,28 @@ export class AnalyticsProcessorService {
             const progress = { ...analytics.progress };
             
             if (stepIndex >= 0 && stepIndex < progress.steps.length) {
+                const currentTime = new Date();
+                
                 // Aktualisiere den Status des angegebenen Schritts
                 progress.steps[stepIndex].status = status;
+                
+                // Erfasse Start- und Endzeit sowie Dauer
+                if (status === 'active') {
+                    // Startzeit setzen, wenn Schritt aktiviert wird
+                    progress.steps[stepIndex].startTime = currentTime;
+                    // Endzeit und Dauer zurücksetzen, falls der Schritt erneut aktiviert wird
+                    progress.steps[stepIndex].endTime = undefined;
+                    progress.steps[stepIndex].duration = undefined;
+                } else if (status === 'completed' || status === 'failed') {
+                    // Endzeit setzen und Dauer berechnen, wenn Schritt abgeschlossen oder fehlgeschlagen ist
+                    progress.steps[stepIndex].endTime = currentTime;
+                    
+                    // Nur Dauer berechnen, wenn auch eine Startzeit existiert
+                    if (progress.steps[stepIndex].startTime) {
+                        const startTime = new Date(progress.steps[stepIndex].startTime!);
+                        progress.steps[stepIndex].duration = currentTime.getTime() - startTime.getTime();
+                    }
+                }
                 
                 // Aktualisiere den aktuellen Schritt nur wenn explizit gewünscht
                 // und wenn die Fortschrittsanzeige aktualisiert werden soll
