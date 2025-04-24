@@ -1,5 +1,6 @@
 import { Ollama } from 'ollama';
 import { SensorDataAnalysisRequest, AnalysisResponse, SensorTypeAnalysis, SensorDataPoint } from '../types/ollama.types';
+import { v4 as uuidv4 } from 'uuid';
 
 type SensorType = 'temperature' | 'humidity' | 'brightness' | 'soilMoisture';
 
@@ -64,6 +65,25 @@ interface ModelInstallProgress {
     file_progress?: Record<string, { total: number, completed: number }>; // Tracking für einzelne Dateien
 }
 
+// Neue Interfaces für die Ollama-Instanz-Verwaltung
+export interface OllamaInstance {
+    id: string;
+    userId: string;
+    name: string;
+    host: string;
+    isDefault: boolean;
+    isConnected: boolean;
+    lastConnected: Date | null;
+    createdAt: Date;
+}
+
+export interface CreateOllamaInstanceRequest {
+    userId: string;
+    name: string;
+    host: string;
+    makeDefault?: boolean;
+}
+
 type SensorTypeInfoMap = {
     [K in SensorType]: SensorTypeInfo;
 };
@@ -71,12 +91,17 @@ type SensorTypeInfoMap = {
 export type ProgressCallback = (phase: string, detail: string, progress: number) => Promise<void>;
 
 export class OllamaService {
-    private ollama: Ollama;
+    private defaultOllama: Ollama;
     private readonly DEFAULT_MODEL = 'deepseek-r1:8b';
     private readonly SENSOR_TYPES: SensorType[] = ['temperature', 'humidity', 'brightness', 'soilMoisture'];
     private modelInstallProgress: Map<string, ModelInstallProgress> = new Map();
     private activeDownloads: Set<string> = new Set();
     private downloadCancellationFlags: Map<string, boolean> = new Map();
+    
+    // Neue Eigenschaften für die Verwaltung von benutzerdefinierten Ollama-Instanzen
+    private customInstances: Map<string, OllamaInstance> = new Map();
+    private ollamaClients: Map<string, Ollama> = new Map();
+    private userDefaultInstances: Map<string, string> = new Map(); // userId -> instanceId
 
     private readonly sensorTypeInfo: SensorTypeInfoMap = {
         temperature: {
@@ -112,12 +137,157 @@ export class OllamaService {
     constructor() {
         const ollamaHost = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
         console.log(`Initializing Ollama client with host: ${ollamaHost}`);
-        this.ollama = new Ollama({ host: ollamaHost });
+        this.defaultOllama = new Ollama({ host: ollamaHost });
     }
 
-    async checkStatus(): Promise<{status: 'connected' | 'disconnected', message: string}> {
+    // Methoden für die Verwaltung von benutzerdefinierten Ollama-Instanzen
+    async registerOllamaInstance(request: CreateOllamaInstanceRequest): Promise<OllamaInstance> {
         try {
-            await this.ollama.list();
+            // Überprüfen, ob die Verbindung hergestellt werden kann
+            const testOllama = new Ollama({ host: request.host });
+            await testOllama.list(); // Test API-Aufruf
+            
+            const instance: OllamaInstance = {
+                id: uuidv4(),
+                userId: request.userId,
+                name: request.name,
+                host: request.host,
+                isDefault: request.makeDefault || false,
+                isConnected: true,
+                lastConnected: new Date(),
+                createdAt: new Date()
+            };
+            
+            // Speichern der Instanz
+            this.customInstances.set(instance.id, instance);
+            this.ollamaClients.set(instance.id, testOllama);
+            
+            // Wenn als Standard festgelegt, den Standard für diesen Benutzer aktualisieren
+            if (instance.isDefault) {
+                this.setUserDefaultInstance(request.userId, instance.id);
+            }
+            
+            return instance;
+        } catch (error) {
+            console.error('Error registering Ollama instance:', error);
+            throw new Error('Failed to connect to the specified Ollama host');
+        }
+    }
+
+    getOllamaInstancesForUser(userId: string): OllamaInstance[] {
+        const instances: OllamaInstance[] = [];
+        this.customInstances.forEach(instance => {
+            if (instance.userId === userId) {
+                instances.push(instance);
+            }
+        });
+        return instances;
+    }
+
+    getOllamaInstance(instanceId: string): OllamaInstance | undefined {
+        return this.customInstances.get(instanceId);
+    }
+
+    async updateOllamaInstanceConnection(instanceId: string): Promise<boolean> {
+        const instance = this.customInstances.get(instanceId);
+        if (!instance) {
+            return false;
+        }
+        
+        try {
+            const client = this.getOllamaClientForInstance(instanceId);
+            await client.list(); // Test-Anfrage
+            
+            // Verbindung aktualisieren
+            instance.isConnected = true;
+            instance.lastConnected = new Date();
+            this.customInstances.set(instanceId, instance);
+            
+            return true;
+        } catch (error) {
+            console.error(`Error checking connection to Ollama instance ${instanceId}:`, error);
+            
+            // Verbindungsstatus als getrennt markieren
+            instance.isConnected = false;
+            this.customInstances.set(instanceId, instance);
+            
+            return false;
+        }
+    }
+
+    removeOllamaInstance(instanceId: string): boolean {
+        const instance = this.customInstances.get(instanceId);
+        if (!instance) {
+            return false;
+        }
+        
+        // Entferne die Instanz
+        this.customInstances.delete(instanceId);
+        this.ollamaClients.delete(instanceId);
+        
+        // Wenn diese Instanz die Standardinstanz für einen Benutzer war, entferne diese Zuordnung
+        if (this.userDefaultInstances.get(instance.userId) === instanceId) {
+            this.userDefaultInstances.delete(instance.userId);
+        }
+        
+        return true;
+    }
+
+    setUserDefaultInstance(userId: string, instanceId: string): boolean {
+        const instance = this.customInstances.get(instanceId);
+        if (!instance || instance.userId !== userId) {
+            return false;
+        }
+        
+        // Aktualisiere den Standard-Status für alle Instanzen dieses Benutzers
+        this.customInstances.forEach((inst, id) => {
+            if (inst.userId === userId) {
+                inst.isDefault = id === instanceId;
+                this.customInstances.set(id, inst);
+            }
+        });
+        
+        // Aktualisiere den Default-Instance-Mapping für diesen Benutzer
+        this.userDefaultInstances.set(userId, instanceId);
+        
+        return true;
+    }
+
+    getOllamaClientForUser(userId: string): Ollama {
+        // Prüfe, ob der Benutzer eine bevorzugte Instanz hat
+        const defaultInstanceId = this.userDefaultInstances.get(userId);
+        if (defaultInstanceId) {
+            const client = this.ollamaClients.get(defaultInstanceId);
+            if (client) {
+                return client;
+            }
+        }
+        
+        // Fallback zur Standard-Instanz
+        return this.defaultOllama;
+    }
+
+    getOllamaClientForInstance(instanceId: string): Ollama {
+        // Für eine bestimmte Instanz
+        const client = this.ollamaClients.get(instanceId);
+        if (client) {
+            return client;
+        }
+        // Fallback zur Standard-Instanz
+        return this.defaultOllama;
+    }
+
+    async checkStatus(instanceId?: string): Promise<{status: 'connected' | 'disconnected', message: string}> {
+        try {
+            let clientToCheck: Ollama;
+            
+            if (instanceId) {
+                clientToCheck = this.getOllamaClientForInstance(instanceId);
+            } else {
+                clientToCheck = this.defaultOllama;
+            }
+            
+            await clientToCheck.list();
             return {
                 status: 'connected',
                 message: 'Verbindung zum Ollama-Dienst hergestellt'
@@ -131,9 +301,17 @@ export class OllamaService {
         }
     }
 
-    async getAvailableModels(): Promise<{ name: string, description: string }[]> {
+    async getAvailableModels(instanceId?: string): Promise<{ name: string, description: string }[]> {
         try {
-            const models = await this.ollama.list();
+            let client: Ollama;
+            
+            if (instanceId) {
+                client = this.getOllamaClientForInstance(instanceId);
+            } else {
+                client = this.defaultOllama;
+            }
+            
+            const models = await client.list();
             return models.models.map(model => ({
                 name: model.name,
                 description: model.details?.parameter_size 
@@ -148,9 +326,17 @@ export class OllamaService {
         }
     }
 
-    async getModelDetails(modelName: string): Promise<ModelDetails | null> {
+    async getModelDetails(modelName: string, instanceId?: string): Promise<ModelDetails | null> {
         try {
-            const modelInfo = await this.ollama.show({ model: modelName }) as OllamaModelDetails;
+            let client: Ollama;
+            
+            if (instanceId) {
+                client = this.getOllamaClientForInstance(instanceId);
+            } else {
+                client = this.defaultOllama;
+            }
+            
+            const modelInfo = await client.show({ model: modelName }) as OllamaModelDetails;
             
             if (!modelInfo) {
                 return null;
@@ -172,8 +358,16 @@ export class OllamaService {
         }
     }
 
-    async installModel(params: ModelInstallParams): Promise<boolean> {
+    async installModel(params: ModelInstallParams, instanceId?: string): Promise<boolean> {
         try {
+            let client: Ollama;
+            
+            if (instanceId) {
+                client = this.getOllamaClientForInstance(instanceId);
+            } else {
+                client = this.defaultOllama;
+            }
+            
             // Status im Fortschritts-Map initialisieren
             this.modelInstallProgress.set(params.name, {
                 status: 'downloading',
@@ -190,7 +384,7 @@ export class OllamaService {
 
             try {
                 // Starten des Pull-Vorgangs mit korrekten Parametern
-                const pullStream = await this.ollama.pull({
+                const pullStream = await client.pull({
                     model: params.name,
                     insecure: params.insecure,
                     stream: true
@@ -354,9 +548,17 @@ export class OllamaService {
         }
     }
 
-    async deleteModel(modelName: string): Promise<boolean> {
+    async deleteModel(modelName: string, instanceId?: string): Promise<boolean> {
         try {
-            await this.ollama.delete({
+            let client: Ollama;
+            
+            if (instanceId) {
+                client = this.getOllamaClientForInstance(instanceId);
+            } else {
+                client = this.defaultOllama;
+            }
+            
+            await client.delete({
                 model: modelName
             });
             return true;
@@ -417,12 +619,22 @@ export class OllamaService {
 
     async analyzeSensorData(
         request: SensorDataAnalysisRequest, 
-        progressCallback?: ProgressCallback
+        progressCallback?: ProgressCallback,
+        userId?: string
     ): Promise<AnalysisResponse> {
         try {
             const availableSensorTypes = this.getAvailableSensorTypes(request.sensorData);
             const model = request.model || this.DEFAULT_MODEL;
             
+            // Wähle den Ollama-Client basierend auf dem Benutzer aus, falls verfügbar
+            let client: Ollama;
+            if (userId) {
+                client = this.getOllamaClientForUser(userId);
+            } else {
+                client = this.defaultOllama;
+            }
+            
+            // Rest der Methode bleibt gleich, aber verwendet den ausgewählten Client
             if (progressCallback) {
                 await progressCallback('data_preparation', 'Daten werden aufbereitet', 0.1);
             }
@@ -433,7 +645,7 @@ export class OllamaService {
             
             let completedSensors = 0;
             const sensorAnalysesPromises = availableSensorTypes.map(async (sensorType) => {
-                const result = await this.analyzeSingleSensorType(request, sensorType as SensorType, model);
+                const result = await this.analyzeSingleSensorType(request, sensorType as SensorType, model, client);
                 
                 completedSensors++;
                 if (progressCallback) {
@@ -454,13 +666,13 @@ export class OllamaService {
                 await progressCallback('correlation_analysis', 'Zusammenhangsanalyse läuft', 0.7);
             }
             
-            const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes, model);
+            const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes, model, client);
 
             if (progressCallback) {
                 await progressCallback('summary_generation', 'Zusammenfassung wird erstellt', 0.9);
             }
 
-            const response = await this.ollama.generate({
+            const response = await client.generate({
                 model: model,
                 prompt: this.buildOverallSummaryPrompt(sensorAnalyses, correlations),
                 format: {
@@ -513,7 +725,8 @@ export class OllamaService {
     private async analyzeSingleSensorType(
         request: SensorDataAnalysisRequest,
         sensorType: SensorType,
-        model: string
+        model: string,
+        client: Ollama = this.defaultOllama
     ): Promise<SensorTypeAnalysis> {
         const sensorData: SingleSensorData[] = request.sensorData
             .map(dataPoint => ({
@@ -524,7 +737,7 @@ export class OllamaService {
 
         const prompt = this.buildSingleSensorAnalysisPrompt(sensorData, sensorType, request.analysisType);
         
-        const response = await this.ollama.generate({
+        const response = await client.generate({
             model: model,
             prompt,
             format: {
@@ -598,7 +811,8 @@ export class OllamaService {
     private async analyzeCorrelations(
         sensorData: SensorDataPoint[],
         sensorTypes: string[],
-        model: string
+        model: string,
+        client: Ollama = this.defaultOllama
     ) {
         if (sensorTypes.length < 2) {
             return [];
@@ -606,7 +820,7 @@ export class OllamaService {
 
         const prompt = this.buildCorrelationAnalysisPrompt(sensorData, sensorTypes);
         
-        const response = await this.ollama.generate({
+        const response = await client.generate({
             model: model,
             prompt,
             format: {

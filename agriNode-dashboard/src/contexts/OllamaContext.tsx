@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { ollamaApi } from '@/api/ollamaApi';
+import { ollamaApi, OllamaInstance, WebSocketMessage, RegisterInstanceParams } from '@/api/ollamaApi';
+import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 
 interface OllamaModel {
@@ -39,6 +40,11 @@ interface OllamaContextType {
   modelDetails: ModelDetails | null;
   loadingModelDetails: boolean;
   installProgress: Record<string, ModelInstallProgress>;
+  wsConnected: boolean;
+  wsConnecting: boolean;
+  instances: OllamaInstance[];
+  loadingInstances: boolean;
+  activeInstanceId: string | null;
   checkOllamaStatus: () => Promise<void>;
   fetchAvailableModels: () => Promise<OllamaModel[]>;
   getModelDetails: (modelName: string) => Promise<ModelDetails | null>;
@@ -46,9 +52,16 @@ interface OllamaContextType {
   deleteModel: (modelName: string) => Promise<boolean>;
   checkInstallProgress: (modelName: string) => Promise<void>;
   cancelModelInstallation: (modelName: string) => Promise<boolean>;
+  connectToWebSocket: () => void;
+  disconnectFromWebSocket: () => void;
+  fetchUserInstances: () => Promise<OllamaInstance[]>;
+  registerInstance: (params: RegisterInstanceParams) => void;
+  removeInstance: (instanceId: string) => void;
+  setDefaultInstance: (instanceId: string) => void;
+  checkInstanceConnection: (instanceId: string) => void;
+  setActiveInstance: (instanceId: string | null) => void;
 }
 
-// Create a default context value to avoid the undefined check
 const defaultContextValue: OllamaContextType = {
   isConnected: false,
   statusMessage: '',
@@ -58,18 +71,32 @@ const defaultContextValue: OllamaContextType = {
   modelDetails: null,
   loadingModelDetails: false,
   installProgress: {},
+  wsConnected: false,
+  wsConnecting: false,
+  instances: [],
+  loadingInstances: false,
+  activeInstanceId: null,
   checkOllamaStatus: async () => {},
   fetchAvailableModels: async () => [],
   getModelDetails: async () => null,
   installModel: async () => false,
   deleteModel: async () => false,
   checkInstallProgress: async () => {},
-  cancelModelInstallation: async () => false
+  cancelModelInstallation: async () => false,
+  connectToWebSocket: () => {},
+  disconnectFromWebSocket: () => {},
+  fetchUserInstances: async () => [],
+  registerInstance: () => {},
+  removeInstance: () => {},
+  setDefaultInstance: () => {},
+  checkInstanceConnection: () => {},
+  setActiveInstance: () => {}
 };
 
 export const OllamaContext = createContext<OllamaContextType>(defaultContextValue);
 
 export const OllamaProvider = ({ children }: { children: ReactNode }) => {
+  const { user, authToken } = useAuth();
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -78,10 +105,16 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
   const [modelDetails, setModelDetails] = useState<ModelDetails | null>(null);
   const [loadingModelDetails, setLoadingModelDetails] = useState<boolean>(false);
   const [installProgress, setInstallProgress] = useState<Record<string, ModelInstallProgress>>({});
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+  const [wsConnecting, setWsConnecting] = useState<boolean>(false);
+  const [instances, setInstances] = useState<OllamaInstance[]>([]);
+  const [loadingInstances, setLoadingInstances] = useState<boolean>(false);
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null);
 
   const checkOllamaStatus = async () => {
     setLoading(true);
     try {
+      const instanceIdParam = activeInstanceId || undefined;
       const status = await ollamaApi.checkStatus();
       setIsConnected(status.status === 'connected');
       setStatusMessage(status.message);
@@ -98,10 +131,10 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchAvailableModels = async () => {
     if (!isConnected) return [];
-    
     setLoadingModels(true);
     try {
-      const models = await ollamaApi.getAvailableModels();
+      const instanceIdParam = activeInstanceId || undefined;
+      const models = await ollamaApi.getAvailableModels(instanceIdParam);
       setAvailableModels(models);
       return models;
     } catch (error) {
@@ -114,12 +147,11 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
 
   const getModelDetails = async (modelName: string) => {
     if (!isConnected) return null;
-
     setLoadingModelDetails(true);
     setModelDetails(null);
-    
     try {
-      const details = await ollamaApi.getModelDetails(modelName);
+      const instanceIdParam = activeInstanceId || undefined;
+      const details = await ollamaApi.getModelDetails(modelName, instanceIdParam);
       setModelDetails(details);
       return details;
     } catch (error) {
@@ -135,24 +167,18 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
       toast.error('Keine Verbindung zu Ollama');
       return false;
     }
-
-    // Initialisiere den Fortschritt für dieses Modell
     setInstallProgress(prev => ({
       ...prev,
       [params.name]: { status: 'starting', progress: 0, completed: false }
     }));
-
     try {
-      const success = await ollamaApi.installModel(params);
-      
+      const instanceIdParam = activeInstanceId || undefined;
+      const success = await ollamaApi.installModel(params, instanceIdParam);
       if (success) {
-        // Starte die Überprüfung des Installationsfortschritts
         setInstallProgress(prev => ({
           ...prev,
           [params.name]: { status: 'downloading', progress: 0.1, completed: false }
         }));
-        
-        // Zeitversetzt den Fortschritt überprüfen
         setTimeout(() => checkInstallProgress(params.name), 2000);
         return true;
       } else {
@@ -174,28 +200,21 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
 
   const checkInstallProgress = async (modelName: string) => {
     if (!isConnected) return;
-
     try {
       const progressInfo = await ollamaApi.getInstallProgress(modelName);
-      
       if (progressInfo) {
         if (progressInfo.completed) {
           setInstallProgress(prev => ({
             ...prev,
             [modelName]: { status: 'completed', progress: 1, completed: true }
           }));
-          
-          // Aktualisiere die Modellliste nach erfolgreicher Installation
           await fetchAvailableModels();
         } else {
-          // Berechne den Fortschritt basierend auf der heruntergeladenen Größe
-          let progress = 0.5; // Standard-Fortschritt, wenn keine Details verfügbar sind
-          
+          let progress = 0.5;
           if (progressInfo.total && progressInfo.completed_size) {
             progress = Math.min(0.99, progressInfo.completed_size / progressInfo.total);
             console.log(`Model ${modelName} download progress: ${progress.toFixed(2)} (${progressInfo.completed_size}/${progressInfo.total} bytes)`);
           }
-          
           setInstallProgress(prev => ({
             ...prev,
             [modelName]: { 
@@ -204,29 +223,21 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
               completed: false 
             }
           }));
-          
-          // Erneut prüfen in 2 Sekunden
           setTimeout(() => checkInstallProgress(modelName), 2000);
         }
       } else {
-        // Wenn der Backend-Service keine Fortschrittsdaten mehr hat (z.B. nach Neustart),
-        // überprüfen wir, ob das Modell bereits in der verfügbaren Liste ist
         const models = await fetchAvailableModels();
         const isInstalled = models.some(model => model.name === modelName);
-        
         if (isInstalled) {
-          // Modell scheint installiert zu sein
           setInstallProgress(prev => ({
             ...prev,
             [modelName]: { status: 'completed', progress: 1, completed: true }
           }));
         } else {
-          // Installation scheint fehlgeschlagen zu sein
           setInstallProgress(prev => ({
             ...prev,
             [modelName]: { status: 'failed', progress: 0, completed: true }
           }));
-          
           toast.error(`Installation von ${modelName} fehlgeschlagen oder abgebrochen`);
         }
       }
@@ -240,12 +251,10 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
       toast.error('Keine Verbindung zu Ollama');
       return false;
     }
-
     try {
-      const success = await ollamaApi.deleteModel(modelName);
-      
+      const instanceIdParam = activeInstanceId || undefined;
+      const success = await ollamaApi.deleteModel(modelName, instanceIdParam);
       if (success) {
-        // Aktualisiere die Modellliste nach erfolgreicher Löschung
         await fetchAvailableModels();
         toast.success(`Modell ${modelName} erfolgreich gelöscht`);
         return true;
@@ -265,10 +274,8 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
       toast.error('Keine Verbindung zu Ollama');
       return false;
     }
-
     try {
       const success = await ollamaApi.cancelInstallation(modelName);
-      
       if (success) {
         setInstallProgress(prev => ({
           ...prev,
@@ -287,16 +294,180 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Prüfe den Status beim ersten Laden und alle 60 Sekunden
+  const handleWebSocketMessage = (message: WebSocketMessage) => {
+    console.log('WebSocket message received:', message);
+    switch (message.type) {
+      case 'authenticated':
+        toast.success('WebSocket-Verbindung authentifiziert');
+        if (message.payload.instances) {
+          setInstances(message.payload.instances);
+        }
+        break;
+      case 'instanceRegistered':
+        toast.success('Ollama-Instanz erfolgreich registriert');
+        if (message.payload.instance) {
+          setInstances(prev => [...prev, message.payload.instance]);
+        }
+        break;
+      case 'instanceRemoved':
+        toast.success('Ollama-Instanz erfolgreich entfernt');
+        if (message.payload.instanceId) {
+          setInstances(prev => prev.filter(inst => inst.id !== message.payload.instanceId));
+          if (activeInstanceId === message.payload.instanceId) {
+            setActiveInstanceId(null);
+          }
+        }
+        break;
+      case 'defaultInstanceSet':
+        toast.success('Standardinstanz gesetzt');
+        if (message.payload.instances) {
+          setInstances(message.payload.instances);
+        }
+        break;
+      case 'connectionStatus':
+        const isConnected = message.payload.connected;
+        if (isConnected) {
+          toast.success('Verbindung zur Ollama-Instanz hergestellt');
+        } else {
+          toast.error('Verbindung zur Ollama-Instanz konnte nicht hergestellt werden');
+        }
+        if (message.payload.instance) {
+          setInstances(prev => 
+            prev.map(inst => inst.id === message.payload.instanceId 
+              ? { ...inst, isConnected: message.payload.connected } 
+              : inst
+            )
+          );
+        }
+        break;
+      case 'instancesList':
+        if (message.payload.instances) {
+          setInstances(message.payload.instances);
+        }
+        break;
+      case 'error':
+        toast.error(`Fehler: ${message.payload.message}`);
+        break;
+    }
+  };
+
+  const connectToWebSocket = () => {
+    if (wsConnected || wsConnecting) return;
+    setWsConnecting(true);
+    ollamaApi.connectWebSocket({
+      onOpen: () => {
+        console.log('WebSocket connected');
+        setWsConnected(true);
+        setWsConnecting(false);
+        if (user && authToken) {
+          ollamaApi.authenticateWebSocket(authToken);
+        }
+      },
+      onMessage: handleWebSocketMessage,
+      onClose: () => {
+        console.log('WebSocket disconnected');
+        setWsConnected(false);
+      },
+      onError: (error) => {
+        console.error('WebSocket error:', error);
+        setWsConnected(false);
+        setWsConnecting(false);
+        toast.error('Fehler bei der WebSocket-Verbindung');
+      }
+    });
+  };
+
+  const disconnectFromWebSocket = () => {
+    ollamaApi.disconnectWebSocket();
+    setWsConnected(false);
+    setWsConnecting(false);
+  };
+
+  const fetchUserInstances = async () => {
+    if (!user) return [];
+    setLoadingInstances(true);
+    try {
+      if (wsConnected) {
+        ollamaApi.listInstances();
+      } else {
+        const userInstances = await ollamaApi.getUserInstances();
+        setInstances(userInstances);
+        return userInstances;
+      }
+      return instances;
+    } catch (error) {
+      console.error('Fehler beim Abrufen der Ollama-Instanzen:', error);
+      return [];
+    } finally {
+      setLoadingInstances(false);
+    }
+  };
+
+  const registerInstance = (params: RegisterInstanceParams) => {
+    if (!wsConnected) {
+      toast.error('Keine WebSocket-Verbindung');
+      return;
+    }
+    ollamaApi.registerOllamaInstance(params);
+  };
+
+  const removeInstance = (instanceId: string) => {
+    if (!wsConnected) {
+      toast.error('Keine WebSocket-Verbindung');
+      return;
+    }
+    ollamaApi.removeOllamaInstance(instanceId);
+  };
+
+  const setDefaultInstance = (instanceId: string) => {
+    if (!wsConnected) {
+      toast.error('Keine WebSocket-Verbindung');
+      return;
+    }
+    ollamaApi.setDefaultInstance(instanceId);
+  };
+
+  const checkInstanceConnection = (instanceId: string) => {
+    if (!wsConnected) {
+      toast.error('Keine WebSocket-Verbindung');
+      return;
+    }
+    ollamaApi.checkInstanceConnection(instanceId);
+  };
+
+  const setActiveInstance = (instanceId: string | null) => {
+    setActiveInstanceId(instanceId);
+    if (instanceId !== activeInstanceId) {
+      setTimeout(() => {
+        checkOllamaStatus();
+      }, 100);
+    }
+  };
+
   useEffect(() => {
     checkOllamaStatus();
-    
     const intervalId = setInterval(() => {
       checkOllamaStatus();
-    }, 60000); // Alle 60 Sekunden
-    
+    }, 60000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [activeInstanceId]);
+
+  useEffect(() => {
+    if (user && !wsConnected && !wsConnecting) {
+      connectToWebSocket();
+    }
+    return () => {
+      if (wsConnected) {
+        disconnectFromWebSocket();
+      }
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (wsConnected && authToken) {
+      ollamaApi.authenticateWebSocket(authToken);
+    }
+  }, [wsConnected, authToken]);
 
   return (
     <OllamaContext.Provider
@@ -309,13 +480,26 @@ export const OllamaProvider = ({ children }: { children: ReactNode }) => {
         modelDetails,
         loadingModelDetails,
         installProgress,
+        wsConnected,
+        wsConnecting,
+        instances,
+        loadingInstances,
+        activeInstanceId,
         checkOllamaStatus,
         fetchAvailableModels,
         getModelDetails,
         installModel,
         deleteModel,
         checkInstallProgress,
-        cancelModelInstallation
+        cancelModelInstallation,
+        connectToWebSocket,
+        disconnectFromWebSocket,
+        fetchUserInstances,
+        registerInstance,
+        removeInstance,
+        setDefaultInstance,
+        checkInstanceConnection,
+        setActiveInstance
       }}
     >
       {children}
@@ -328,5 +512,4 @@ export const useOllama = () => {
   return context;
 };
 
-// Add a default export for the context to ensure it's properly loaded
 export default OllamaContext;

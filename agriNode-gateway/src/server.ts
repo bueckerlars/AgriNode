@@ -15,11 +15,49 @@ import firmwareRoutes from './routes/FirmwareRoutes';
 import ollamaRoutes from './routes/OllamaRoutes';
 import analyticsRoutes from './routes/SensorAnalyticsRoutes';
 import analyticsProcessorService from './services/AnalyticsProcessorService';
+import http from 'http';
+import WebSocket from 'ws';
+import { URL } from 'url';
+import { setupWebSocketServer } from './websockets/ollamaWebsocketHandler';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// HTTP Server erstellen
+const server = http.createServer(app);
+
+// WebSocket-Server mit Pfadunterstützung initialisieren
+const wss = new WebSocket.Server({ 
+  server, 
+  // Wir nutzen hier keinen Pfad für den WebSocket-Server, sondern validieren den Pfad in der Verbindungsverarbeitung
+  // path: '/ws/ollama'
+  // Das ermöglicht flexiblere Pfadverarbeitung
+});
+
+// WebSocket-Verbindungen basierend auf URL-Pfad verarbeiten
+wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
+  // URL-Pfad extrahieren und normalisieren
+  const path = req.url ? new URL(req.url, 'http://localhost').pathname : '/';
+  
+  // Logge den Verbindungsversuch
+  logger.info(`WebSocket connection attempt to path: ${path}`);
+  
+  // Verbindung zum Ollama-WebSocket-Endpunkt
+  if (path === '/ws/ollama') {
+    logger.info('Forwarding connection to Ollama WebSocket handler');
+    // Diese Verbindung wird vom Ollama-WebSocket-Handler verarbeitet
+    return; // Nicht sofort schließen, SetupWebSocketServer wird sich darum kümmern
+  } else {
+    // Unbekannter Pfad, Verbindung schließen
+    logger.warn(`Unknown WebSocket path: ${path}`);
+    ws.close(1000, 'Unknown WebSocket path');
+  }
+});
+
+// Ollama WebSocket-Handler einrichten (mit Pfadfilter)
+setupWebSocketServer(wss, '/ws/ollama');
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
@@ -71,7 +109,7 @@ app.get('/status', (req: Request, res: Response) => {
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.listen(port, () => {
+server.listen(port, () => {
   logger.info(`Server is running on http://localhost:${port}`);
   
   // Initialize the analytics processor service

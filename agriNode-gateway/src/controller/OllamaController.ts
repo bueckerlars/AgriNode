@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { OllamaService } from '../services/OllamaService';
+import { OllamaService, OllamaInstance } from '../services/OllamaService';
 import { SensorDataAnalysisRequest } from '../types/ollama.types';
 
 export class OllamaController {
@@ -9,9 +9,21 @@ export class OllamaController {
         this.ollamaService = new OllamaService();
     }
 
+    // Hilfsmethode, um die Benutzer-ID aus dem Request zu extrahieren
+    private getUserId(req: Request): string | undefined {
+        if (req.user && (req.user as any).id) {
+            return (req.user as any).id;
+        }
+        return undefined;
+    }
+    
+    /**
+     * Prüft den Status der Ollama-Verbindung
+     */
     checkStatus = async (req: Request, res: Response): Promise<void> => {
         try {
-            const status = await this.ollamaService.checkStatus();
+            const instanceId = req.query.instanceId as string | undefined;
+            const status = await this.ollamaService.checkStatus(instanceId);
             res.status(200).json(status);
         } catch (error) {
             console.error('Fehler bei der Statusprüfung des Ollama-Dienstes:', error);
@@ -22,9 +34,13 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Ruft verfügbare Ollama-Modelle ab
+     */
     getAvailableModels = async (req: Request, res: Response): Promise<void> => {
         try {
-            const models = await this.ollamaService.getAvailableModels();
+            const instanceId = req.query.instanceId as string | undefined;
+            const models = await this.ollamaService.getAvailableModels(instanceId);
             res.status(200).json({ models });
         } catch (error) {
             console.error('Fehler beim Abrufen der verfügbaren Modelle:', error);
@@ -32,15 +48,20 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Ruft Details eines spezifischen Modells ab
+     */
     getModelDetails = async (req: Request, res: Response): Promise<void> => {
         try {
             const { modelName } = req.params;
+            const instanceId = req.query.instanceId as string | undefined;
+            
             if (!modelName) {
                 res.status(400).json({ error: 'Modellname ist erforderlich' });
                 return;
             }
 
-            const modelDetails = await this.ollamaService.getModelDetails(modelName);
+            const modelDetails = await this.ollamaService.getModelDetails(modelName, instanceId);
             
             if (!modelDetails) {
                 res.status(404).json({ error: `Modell ${modelName} nicht gefunden` });
@@ -54,9 +75,13 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Installiert ein neues Modell
+     */
     installModel = async (req: Request, res: Response): Promise<void> => {
         try {
             const { name, modelfile, insecure } = req.body;
+            const instanceId = req.query.instanceId as string | undefined;
             
             if (!name) {
                 res.status(400).json({ error: 'Modellname ist erforderlich' });
@@ -67,7 +92,7 @@ export class OllamaController {
                 name, 
                 modelfile, 
                 insecure: !!insecure 
-            });
+            }, instanceId);
             
             if (success) {
                 res.status(200).json({ success: true });
@@ -86,16 +111,20 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Löscht ein vorhandenes Modell
+     */
     deleteModel = async (req: Request, res: Response): Promise<void> => {
         try {
             const { modelName } = req.params;
+            const instanceId = req.query.instanceId as string | undefined;
             
             if (!modelName) {
                 res.status(400).json({ error: 'Modellname ist erforderlich' });
                 return;
             }
             
-            const success = await this.ollamaService.deleteModel(modelName);
+            const success = await this.ollamaService.deleteModel(modelName, instanceId);
             
             if (success) {
                 res.status(200).json({ success: true });
@@ -114,6 +143,9 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Ruft den Installationsfortschritt eines Modells ab
+     */
     getModelInstallProgress = async (req: Request, res: Response): Promise<void> => {
         try {
             const { modelName } = req.params;
@@ -139,6 +171,9 @@ export class OllamaController {
         }
     }
     
+    /**
+     * Bricht die Installation eines Modells ab
+     */
     cancelModelInstallation = async (req: Request, res: Response): Promise<void> => {
         try {
             const { modelName } = req.params;
@@ -167,9 +202,13 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Analysiert Sensordaten mit einem KI-Modell
+     */
     analyzeSensorData = async (req: Request, res: Response): Promise<void> => {
         try {
             const analysisRequest = req.body as SensorDataAnalysisRequest;
+            const userId = this.getUserId(req);
             
             // Validiere die Eingabedaten
             if (!this.validateAnalysisRequest(analysisRequest)) {
@@ -177,7 +216,11 @@ export class OllamaController {
                 return;
             }
 
-            const analysis = await this.ollamaService.analyzeSensorData(analysisRequest);
+            const analysis = await this.ollamaService.analyzeSensorData(
+                analysisRequest,
+                undefined, // progressCallback
+                userId
+            );
             res.status(200).json(analysis);
         } catch (error) {
             console.error('Fehler bei der Sensoranalyse:', error);
@@ -185,6 +228,56 @@ export class OllamaController {
         }
     }
 
+    /**
+     * Gibt die Ollama-Instanzen eines Benutzers zurück
+     */
+    getUserInstances = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const userId = this.getUserId(req);
+            
+            if (!userId) {
+                res.status(401).json({ error: 'Nicht authentifiziert' });
+                return;
+            }
+            
+            const instances = this.ollamaService.getOllamaInstancesForUser(userId);
+            res.status(200).json({ instances });
+        } catch (error) {
+            console.error('Fehler beim Abrufen der Ollama-Instanzen:', error);
+            res.status(500).json({ error: 'Fehler beim Abrufen der Ollama-Instanzen' });
+        }
+    }
+
+    /**
+     * Initialisiert eine WebSocket-Verbindung für die Ollama-Instanzverwaltung
+     */
+    initWebSocketConnection = async (req: Request, res: Response): Promise<void> => {
+        try {
+            // Hier könnten in Zukunft ggf. Verbindungsvorbereitungen stattfinden
+            // z.B. WebSocket-Token erstellen, Session vorbereiten, etc.
+            
+            // Aktuell ist dieser Endpunkt hauptsächlich ein Signal für den Client,
+            // dass der Server bereit für WebSocket-Verbindungen ist
+            const userId = this.getUserId(req);
+            
+            res.status(200).json({ 
+                success: true,
+                message: 'WebSocket-Verbindung kann initiiert werden',
+                wsEndpoint: '/ws/ollama',
+                userId
+            });
+        } catch (error) {
+            console.error('Fehler bei der WebSocket-Initialisierung:', error);
+            res.status(500).json({ 
+                success: false,
+                error: 'Fehler bei der WebSocket-Initialisierung'
+            });
+        }
+    }
+
+    /**
+     * Validiert eine Analyseanfrage
+     */
     private validateAnalysisRequest(request: SensorDataAnalysisRequest): boolean {
         if (!request.sensorData || !Array.isArray(request.sensorData) || request.sensorData.length === 0) {
             return false;

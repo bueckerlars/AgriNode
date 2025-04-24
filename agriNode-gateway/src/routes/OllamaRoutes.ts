@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { OllamaController } from '../controller/OllamaController';
+import AuthMiddleware from '../middleware/AuthMiddleware';
 
 const router = Router();
 const ollamaController = new OllamaController();
@@ -538,8 +539,44 @@ const ollamaController = new OllamaController();
  *               properties:
  *                 error:
  *                   type: string
+ *
+ * /api/ollama/ws/init:
+ *   post:
+ *     tags:
+ *       - Ollama
+ *     summary: WebSocket-Verbindung initialisieren
+ *     description: Bereitet eine WebSocket-Verbindung für die Ollama-Instanzverwaltung vor
+ *     responses:
+ *       200:
+ *         description: WebSocket-Verbindung kann initiiert werden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   description: True, wenn die Initialisierung erfolgreich war
+ *                 message:
+ *                   type: string
+ *                   description: Informationen zur WebSocket-Verbindung
+ *                 wsEndpoint:
+ *                   type: string
+ *                   description: Der Pfad des WebSocket-Endpunkts
+ *       500:
+ *         description: Serverfehler bei der WebSocket-Initialisierung
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   default: false
+ *                 error:
+ *                   type: string
  */
-router.post('/analyze-sensor-data', ollamaController.analyzeSensorData);
+
 router.get('/status', ollamaController.checkStatus);
 router.get('/models', ollamaController.getAvailableModels);
 router.get('/models/:modelName', ollamaController.getModelDetails);
@@ -547,5 +584,8 @@ router.post('/models', ollamaController.installModel);
 router.delete('/models/:modelName', ollamaController.deleteModel);
 router.get('/models/:modelName/progress', ollamaController.getModelInstallProgress);
 router.delete('/models/:modelName/progress', ollamaController.cancelModelInstallation);
+router.post('/analyze-sensor-data', AuthMiddleware.authenticate, ollamaController.analyzeSensorData);
+router.get('/instances', AuthMiddleware.authenticate, ollamaController.getUserInstances);
+router.post('/ws/init', AuthMiddleware.authenticate, ollamaController.initWebSocketConnection);
 
 export default router;

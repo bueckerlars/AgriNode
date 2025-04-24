@@ -8,12 +8,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { AlertCircle, ClipboardIcon, EyeIcon, EyeOffIcon, RefreshCw, Loader } from 'lucide-react';
+import { AlertCircle, ClipboardIcon, EyeIcon, EyeOffIcon, RefreshCw, Loader, Server, Globe, LinkIcon, Wifi } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { 
   Select, 
@@ -23,6 +23,9 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const EXPIRATION_OPTIONS = [
   { label: 'Nie', value: '0' },
@@ -72,12 +75,24 @@ export const Settings: React.FC = () => {
     modelDetails,
     loadingModelDetails,
     installProgress,
+    wsConnected,
+    wsConnecting,
+    instances,
+    loadingInstances,
+    activeInstanceId,
     checkOllamaStatus,
     fetchAvailableModels,
     getModelDetails,
     installModel,
     deleteModel,
-    cancelModelInstallation
+    cancelModelInstallation,
+    connectToWebSocket,
+    fetchUserInstances,
+    registerInstance,
+    removeInstance,
+    setDefaultInstance,
+    checkInstanceConnection,
+    setActiveInstance
   } = useOllama();
   
   const { user } = useAuth();
@@ -119,12 +134,27 @@ export const Settings: React.FC = () => {
   const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<string | null>(null);
 
+  const [registerInstanceDialogOpen, setRegisterInstanceDialogOpen] = useState(false);
+  const [newInstanceHost, setNewInstanceHost] = useState('http://localhost:11434');
+  const [newInstanceName, setNewInstanceName] = useState('Lokale Ollama-Instanz');
+  const [makeDefaultInstance, setMakeDefaultInstance] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("default");
+  const [confirmRemoveInstanceDialogOpen, setConfirmRemoveInstanceDialogOpen] = useState(false);
+  const [instanceToRemove, setInstanceToRemove] = useState<string | null>(null);
+
   useEffect(() => {
     fetchApiKeys();
     if (isAdmin) {
       fetchUsers();
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserInstances();
+    }
+  }, [user, wsConnected]);
 
   const handleToggleVisibility = (id: string, key: string) => {
     if (visibleKeys[id]) {
@@ -344,94 +374,281 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const handleOpenRegisterInstanceDialog = () => {
+    setNewInstanceHost('http://localhost:11434');
+    setNewInstanceName('Lokale Ollama-Instanz');
+    setMakeDefaultInstance(false);
+    setRegisterInstanceDialogOpen(true);
+  };
+
+  const handleRegisterInstance = () => {
+    if (!newInstanceHost.trim() || !newInstanceName.trim()) {
+      toast.error('Bitte gib Host und Namen an');
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      registerInstance({
+        host: newInstanceHost.trim(),
+        name: newInstanceName.trim(),
+        makeDefault: makeDefaultInstance
+      });
+      setRegisterInstanceDialogOpen(false);
+    } catch (error) {
+      console.error('Fehler bei der Registrierung der Ollama-Instanz:', error);
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleConfirmRemoveInstance = (instanceId: string) => {
+    setInstanceToRemove(instanceId);
+    setConfirmRemoveInstanceDialogOpen(true);
+  };
+
+  const handleRemoveInstance = () => {
+    if (!instanceToRemove) return;
+    
+    removeInstance(instanceToRemove);
+    setConfirmRemoveInstanceDialogOpen(false);
+    setInstanceToRemove(null);
+  };
+
+  const handleSetDefaultInstance = (instanceId: string) => {
+    setDefaultInstance(instanceId);
+  };
+
+  const handleCheckInstanceConnection = (instanceId: string) => {
+    checkInstanceConnection(instanceId);
+  };
+
+  const handleSelectInstance = (instanceId: string | null) => {
+    setActiveInstance(instanceId);
+    setActiveTab(instanceId || "default");
+  };
+
+  const handleConnectWebSocket = () => {
+    if (!wsConnected) {
+      connectToWebSocket();
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
       <Card>
-        <CardHeader>
-          <h2 className="text-xl font-semibold">Manage API Keys</h2>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <h2 className="text-xl font-semibold">Ollama-Instanzen</h2>
+          <div className="flex space-x-2">
+            {!wsConnected ? (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleConnectWebSocket}
+                disabled={wsConnecting}
+              >
+                {wsConnecting ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-1 animate-spin" />
+                    Verbinde...
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon className="h-4 w-4 mr-1" />
+                    Mit WebSocket verbinden
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="flex items-center bg-green-50">
+                <Wifi className="h-3 w-3 mr-1 text-green-500" /> 
+                WebSocket verbunden
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col space-y-4 mb-4">
-            <div className="flex items-center space-x-2">
-              <Input
-                placeholder="Name for new key"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                disabled={submitting}
-              />
-              <Select
-                value={expiration}
-                onValueChange={setExpiration}
-                disabled={submitting}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Select expiration" />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXPIRATION_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Creating...' : 'Create'}
+          <div className="mb-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Du kannst deine lokale Ollama-Instanz registrieren, um sie mit dem Gateway zu verbinden. 
+              Dadurch kannst du deine eigenen Modelle nutzen und verwalten.
+            </p>
+            
+            <div className="flex items-center justify-between">
+              <Button onClick={handleOpenRegisterInstanceDialog} disabled={!wsConnected}>
+                Lokale Ollama-Instanz registrieren
               </Button>
             </div>
-          </form>
 
-          {apiKeysError && <p className="text-red-600 mb-4">{apiKeysError}</p>}
+            {!wsConnected && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>WebSocket nicht verbunden</AlertTitle>
+                <AlertDescription>
+                  Die WebSocket-Verbindung ist erforderlich, um Ollama-Instanzen zu registrieren und zu verwalten.
+                  Klicke auf "Mit WebSocket verbinden", um eine Verbindung herzustellen.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="default" onClick={() => handleSelectInstance(null)}>
+                Standard-Instanz
+              </TabsTrigger>
+              {instances.map(instance => (
+                <TabsTrigger 
+                  key={instance.id} 
+                  value={instance.id}
+                  onClick={() => handleSelectInstance(instance.id)}
+                >
+                  {instance.name}
+                  {instance.isDefault && " (Standard)"}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
           <div className="overflow-x-auto">
-            <Table className="w-full table-fixed">
+            <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-1/4">Name</TableHead>
-                  <TableHead className="w-1/3">Key</TableHead>
-                  <TableHead className="w-1/6">Created</TableHead>
-                  <TableHead className="w-1/6">Expires</TableHead>
-                  <TableHead className="w-1/6">Actions</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Host</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Standard</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apiKeys.map(key => (
-                  <TableRow key={key.api_key_id}>
-                    <TableCell>{key.name}</TableCell>
+                <TableRow className={activeTab === "default" ? "bg-accent/20" : ""}>
+                  <TableCell className="font-medium">Gateway Ollama-Instanz</TableCell>
+                  <TableCell>
+                    <span className="flex items-center">
+                      <Server className="h-4 w-4 mr-2" />
+                      Standard
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {ollamaConnected ? (
+                      <span className="flex items-center text-green-600">
+                        <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                        Verbunden
+                      </span>
+                    ) : (
+                      <span className="flex items-center text-red-600">
+                        <span className="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
+                        Nicht verbunden
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="flex items-center">
+                      <Badge>Gateway Standard</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      variant={activeTab === "default" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => handleSelectInstance(null)}
+                    >
+                      {activeTab === "default" ? "Aktiv" : "Auswählen"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+
+                {instances.map(instance => (
+                  <TableRow key={instance.id} className={activeTab === instance.id ? "bg-accent/20" : ""}>
+                    <TableCell className="font-medium">{instance.name}</TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <div id={`key-${key.api_key_id}`} className="w-full truncate">
-                          {visibleKeys[key.api_key_id] ? (
-                            <code className="font-mono text-sm break-all">{key.key}</code>
-                          ) : (
-                            <span className="font-mono text-sm">••••••••••••••••</span>
-                          )}
-                        </div>
-                        <Button size="sm" onClick={() => handleCopyKey(key.key)}>
-                          <ClipboardIcon className="h-4 w-4" />
+                      <span className="flex items-center">
+                        <Globe className="h-4 w-4 mr-2" />
+                        {instance.host}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {instance.isConnected ? (
+                        <span className="flex items-center text-green-600">
+                          <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                          Verbunden
+                        </span>
+                      ) : (
+                        <span className="flex items-center text-red-600">
+                          <span className="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
+                          Nicht verbunden
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Switch 
+                          checked={instance.isDefault}
+                          onCheckedChange={() => instance.isDefault ? null : handleSetDefaultInstance(instance.id)}
+                          disabled={!wsConnected || instance.isDefault}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleCheckInstanceConnection(instance.id)}
+                          disabled={!wsConnected}
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Status
                         </Button>
-                        <Button size="sm" onClick={() => handleToggleVisibility(key.api_key_id, key.key)}>
-                          {visibleKeys[key.api_key_id] ? (
-                            <EyeOffIcon className="h-4 w-4" />
-                          ) : (
-                            <EyeIcon className="h-4 w-4" />
-                          )}
+                        <Button 
+                          size="sm" 
+                          variant={activeTab === instance.id ? "default" : "outline"}
+                          onClick={() => handleSelectInstance(instance.id)}
+                        >
+                          {activeTab === instance.id ? "Aktiv" : "Auswählen"}
+                        </Button>
+                        <Button 
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleConfirmRemoveInstance(instance.id)}
+                          disabled={!wsConnected}
+                        >
+                          Entfernen
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell>{new Date(key.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {key.expiration_date ? new Date(key.expiration_date).toLocaleDateString() : 'Never'}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(key.api_key_id)}>
-                        Delete
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
+
+                {instances.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-6">
+                      {wsConnected ? (
+                        <div className="text-center py-6">
+                          <p className="text-muted-foreground">Keine benutzerdefinierten Instanzen registriert</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={handleOpenRegisterInstanceDialog}
+                          >
+                            Instanz registrieren
+                          </Button>
+                        </div>
+                      ) : loadingInstances ? (
+                        <div className="flex flex-col items-center py-4">
+                          <Loader className="h-5 w-5 animate-spin mb-2" />
+                          <span className="text-muted-foreground">Lade Instanzen...</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">WebSocket-Verbindung erforderlich</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -454,6 +671,18 @@ export const Settings: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {activeInstanceId && (
+            <Alert variant="default" className="mb-4">
+              <AlertTitle className="flex items-center">
+                <Globe className="h-4 w-4 mr-2" />
+                Aktive Instanz: {instances.find(i => i.id === activeInstanceId)?.name || 'Unbekannt'}
+              </AlertTitle>
+              <AlertDescription>
+                Du siehst gerade die Modelle deiner benutzerdefinierten Ollama-Instanz.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {!ollamaConnected && !ollamaLoading ? (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -519,7 +748,6 @@ export const Settings: React.FC = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                    {/* Zeige die installierten Modelle */}
                     {availableModels.map(model => {
                       const progress = installProgress[model.name];
                       const isInstalling = progress && !progress.completed;
@@ -579,7 +807,6 @@ export const Settings: React.FC = () => {
                       );
                     })}
                     
-                    {/* Zeige Modelle, die installiert werden, aber noch nicht in der Liste sind */}
                     {Object.entries(installProgress)
                       .filter(([modelName, progress]) => !progress.completed && !availableModels.some(m => m.name === modelName))
                       .map(([modelName, progress]) => {
@@ -1031,6 +1258,113 @@ export const Settings: React.FC = () => {
               onClick={handleDeleteModel}
             >
               Löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={registerInstanceDialogOpen} onOpenChange={setRegisterInstanceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lokale Ollama-Instanz registrieren</DialogTitle>
+            <DialogDescription>
+              Gib die Details deiner lokalen Ollama-Instanz ein, um sie mit dem Gateway zu verbinden.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="instance-name">Name der Instanz</Label>
+              <Input 
+                id="instance-name" 
+                value={newInstanceName} 
+                onChange={e => setNewInstanceName(e.target.value)}
+                placeholder="Meine Ollama-Instanz"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="instance-host">Host-Adresse</Label>
+              <Input 
+                id="instance-host" 
+                value={newInstanceHost} 
+                onChange={e => setNewInstanceHost(e.target.value)}
+                placeholder="http://localhost:11434"
+              />
+              <p className="text-xs text-muted-foreground">
+                Die vollständige URL deiner Ollama-API. Standardmäßig läuft Ollama auf Port 11434.
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="make-default" 
+                checked={makeDefaultInstance}
+                onCheckedChange={(checked) => setMakeDefaultInstance(!!checked)}
+              />
+              <Label 
+                htmlFor="make-default" 
+                className="text-sm"
+              >
+                Als Standardinstanz setzen
+              </Label>
+            </div>
+            
+            <Alert>
+              <AlertDescription className="text-sm">
+                Stelle sicher, dass deine Ollama-Instanz läuft und von diesem Gerät aus erreichbar ist.
+                Die Instanz muss CORS für diese Domain aktiviert haben, damit die Kommunikation funktioniert.
+              </AlertDescription>
+            </Alert>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setRegisterInstanceDialogOpen(false)}
+              disabled={registering}
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={handleRegisterInstance}
+              disabled={registering || !newInstanceHost.trim() || !newInstanceName.trim()}
+            >
+              {registering ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  Registriere...
+                </>
+              ) : 'Registrieren'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmRemoveInstanceDialogOpen} onOpenChange={setConfirmRemoveInstanceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ollama-Instanz entfernen</DialogTitle>
+            <DialogDescription>
+              Möchtest du diese Instanz wirklich entfernen? Sie wird nicht mehr für Anfragen verwendet werden.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setConfirmRemoveInstanceDialogOpen(false);
+                setInstanceToRemove(null);
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleRemoveInstance}
+            >
+              Entfernen
             </Button>
           </DialogFooter>
         </DialogContent>
