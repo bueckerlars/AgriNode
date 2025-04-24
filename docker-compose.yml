@@ -18,6 +18,7 @@ services:
       - DATABASE_NAME=agri_db
       - NODE_ENV=production
       - OLLAMA_HOST=http://host.docker.internal:11434
+      - DOCKER_ENV=true
     restart: unless-stopped
 
   dashboard:

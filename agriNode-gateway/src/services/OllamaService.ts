@@ -143,15 +143,28 @@ export class OllamaService {
     // Methoden für die Verwaltung von benutzerdefinierten Ollama-Instanzen
     async registerOllamaInstance(request: CreateOllamaInstanceRequest): Promise<OllamaInstance> {
         try {
+            // Modifiziere den Host-String für Docker-Umgebungen
+            let ollamaHost = request.host;
+            
+            // Wenn die Host-Adresse "localhost" oder "127.0.0.1" ist und wir in Docker sind,
+            // ersetzen wir sie mit "host.docker.internal", um auf den Host-PC zuzugreifen
+            if (process.env.DOCKER_ENV === 'true' && 
+                (ollamaHost.includes('localhost') || ollamaHost.includes('127.0.0.1'))) {
+                console.log(`Docker-Umgebung erkannt: Ersetze ${ollamaHost} mit host.docker.internal`);
+                ollamaHost = ollamaHost.replace(/localhost|127\.0\.0\.1/, 'host.docker.internal');
+                console.log(`Verwende stattdessen: ${ollamaHost}`);
+            }
+            
             // Überprüfen, ob die Verbindung hergestellt werden kann
-            const testOllama = new Ollama({ host: request.host });
+            console.log(`Versuche Verbindung zu Ollama-Host herzustellen: ${ollamaHost}`);
+            const testOllama = new Ollama({ host: ollamaHost });
             await testOllama.list(); // Test API-Aufruf
             
             const instance: OllamaInstance = {
                 id: uuidv4(),
                 userId: request.userId,
                 name: request.name,
-                host: request.host,
+                host: ollamaHost, // Speichere den modifizierten Host
                 isDefault: request.makeDefault || false,
                 isConnected: true,
                 lastConnected: new Date(),
