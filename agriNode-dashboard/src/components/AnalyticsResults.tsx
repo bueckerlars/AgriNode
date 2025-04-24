@@ -13,6 +13,16 @@ import { de } from "date-fns/locale";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 interface AnalyticsResultsProps {
@@ -28,6 +38,7 @@ export const AnalyticsResults = React.memo(
     const [isOpen, setIsOpen] = useState(isExpanded);
     const [isDetailedAnalysisOpen, setIsDetailedAnalysisOpen] = useState(false);
     const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(true);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     
     // Persistenter Zustand für die ausgeklappten Fortschrittsinformationen mit localStorage
     const storageKey = `analytics-steps-expanded-${analytics.analytics_id}`;
@@ -262,7 +273,7 @@ export const AnalyticsResults = React.memo(
                     className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDelete(analytics.analytics_id);
+                      setIsDeleteDialogOpen(true);
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -600,6 +611,23 @@ export const AnalyticsResults = React.memo(
             </CardContent>
           </CollapsibleContent>
         </Card>
+
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Analyse löschen</AlertDialogTitle>
+              <AlertDialogDescription>
+                Möchten Sie diese Analyse wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDelete(analytics.analytics_id)}>
+                Löschen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </Collapsible>
     );
   },
