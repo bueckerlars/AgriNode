@@ -1,4 +1,4 @@
-import Ollama from 'ollama';
+import { Ollama } from 'ollama';
 import { SensorDataAnalysisRequest, AnalysisResponse, SensorTypeAnalysis, SensorDataPoint } from '../types/ollama.types';
 
 type SensorType = 'temperature' | 'humidity' | 'brightness' | 'soilMoisture';
@@ -23,7 +23,7 @@ type SensorTypeInfoMap = {
 export type ProgressCallback = (phase: string, detail: string, progress: number) => Promise<void>;
 
 export class OllamaService {
-    private ollama: typeof Ollama;
+    private ollama: Ollama;
     private readonly DEFAULT_MODEL = 'deepseek-r1:8b';
     private readonly SENSOR_TYPES: SensorType[] = ['temperature', 'humidity', 'brightness', 'soilMoisture'];
 
@@ -59,7 +59,9 @@ export class OllamaService {
     };
 
     constructor() {
-        this.ollama = Ollama;
+        const ollamaHost = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
+        console.log(`Initializing Ollama client with host: ${ollamaHost}`);
+        this.ollama = new Ollama({ host: ollamaHost });
     }
 
     async checkStatus(): Promise<{status: 'connected' | 'disconnected', message: string}> {

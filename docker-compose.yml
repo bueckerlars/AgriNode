@@ -17,6 +17,7 @@ services:
       - DATABASE_PASSWORD=postgres
       - DATABASE_NAME=agri_db
       - NODE_ENV=production
+      - OLLAMA_HOST=http://host.docker.internal:11434
     restart: unless-stopped
 
   dashboard:
