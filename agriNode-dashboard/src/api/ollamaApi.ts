@@ -79,29 +79,27 @@ let wsCallbacks: {
 } = {};
 
 // WebSocket-URL mit spezifischem Pfad für Ollama-Instanzen
-// Verwende die API_BASE_URL aus der Umgebung oder fallback auf den Server, auf dem die App läuft
-const getApiBaseUrl = () => {
-  // Wenn eine API_BASE_URL definiert ist (z.B. in der .env), verwende diese
-  if (import.meta.env.VITE_API_BASE_URL) {
-    const url = new URL(import.meta.env.VITE_API_BASE_URL);
-    return url.host;
-  }
+// Verbesserte Version, die auch in Docker und hinter Reverse Proxies funktioniert
+const getWsUrl = () => {
+  // Protokoll bestimmen (ws oder wss basierend auf http oder https)
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   
-  // Wenn wir in Entwicklung sind, nutze den gleichen Port wie der apiClient (Port 5066)
+  // API Basispfad ermitteln - identisch zur Logik in apiClient.ts
+  let basePath = '';
+  
+  // Im Development-Modus verwenden wir die lokale Entwicklungsserver-IP und Port
   if (import.meta.env.DEV) {
     const host = window.location.hostname;
-    return `${host}:5066`; // API läuft auf Port 5066 in Entwicklung
+    return `${protocol}//${host}:5066/ws/ollama`;
   }
   
-  // Standard: Verwende den aktuellen Host
-  return window.location.host;
+  // In Produktion (Docker/Nginx) verwenden wir den relativen Pfad zum aktuellen Host
+  // WICHTIG: Wir ersetzen "ws/ollama" mit "api/ws/ollama", weil in Nginx 
+  // alle API-Anfragen über /api/ weitergeleitet werden müssen
+  return `${protocol}//${window.location.host}/api/ws/ollama`;
 };
 
-const wsHost = getApiBaseUrl();
-const wsUrl = window.location.protocol === 'https:' ? 
-  `wss://${wsHost}/ws/ollama` : 
-  `ws://${wsHost}/ws/ollama`;
-
+const wsUrl = getWsUrl();
 console.log('WebSocket URL:', wsUrl);
 
 // Hilfsfunktion zum Senden von Nachrichten an den WebSocket-Server
