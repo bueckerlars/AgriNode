@@ -1,5 +1,5 @@
 import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
-import { SensorAnalytics as SensorAnalyticsType, AnalysisStatus, AnalysisType } from '../types/SensorAnalytics';
+import { SensorAnalytics as SensorAnalyticsType, AnalysisStatus, AnalysisType, ProgressInfo } from '../types/SensorAnalytics';
 import { v4 as uuidv4 } from 'uuid';
 
 interface SensorAnalyticsCreationAttributes extends Optional<SensorAnalyticsType, 'analytics_id' | 'created_at' | 'updated_at'> {}
@@ -17,6 +17,7 @@ class SensorAnalytics extends Model<SensorAnalyticsType, SensorAnalyticsCreation
     };
     [key: string]: any;
   };
+  public progress?: ProgressInfo;
   public result?: any;
   public created_at!: Date;
   public updated_at!: Date;
@@ -64,6 +65,10 @@ export default (sequelize: Sequelize) => {
       parameters: {
         type: DataTypes.JSONB,
         allowNull: false,
+      },
+      progress: {
+        type: DataTypes.JSONB,
+        allowNull: true,
       },
       result: {
         type: DataTypes.JSONB,

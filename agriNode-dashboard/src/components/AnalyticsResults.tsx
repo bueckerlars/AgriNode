@@ -1,12 +1,12 @@
-import React, { useState } from "react";
-import { SensorAnalytics, AnalysisStatus, AnalysisType } from "@/types/api";
+import React, { useState, useEffect } from "react";
+import { SensorAnalytics, AnalysisStatus, AnalysisType, ProgressStep } from "@/types/api";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   Trash2, AlertCircle, TrendingUp, AlertTriangle, LineChart, ChevronDown, 
   ChevronUp, FileText, Lightbulb, List, Thermometer, Droplet, Flower, 
-  Sun, Cpu, Clock, CalendarRange, BarChart4
+  Sun, Cpu, Clock, CalendarRange, BarChart4, CheckCircle2, XCircle, LoaderCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -28,6 +28,29 @@ export const AnalyticsResults = React.memo(
     const [isOpen, setIsOpen] = useState(isExpanded);
     const [isDetailedAnalysisOpen, setIsDetailedAnalysisOpen] = useState(false);
     const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(true);
+    
+    // Persistenter Zustand für die ausgeklappten Fortschrittsinformationen mit localStorage
+    const storageKey = `analytics-steps-expanded-${analytics.analytics_id}`;
+    
+    // Initial den Wert aus localStorage lesen oder auf false zurückfallen
+    const [stepsExpanded, setStepsExpanded] = useState(() => {
+      try {
+        const storedValue = localStorage.getItem(storageKey);
+        return storedValue ? JSON.parse(storedValue) : false;
+      } catch (e) {
+        console.error("Error reading from localStorage:", e);
+        return false;
+      }
+    });
+    
+    // Zustand im localStorage speichern, wenn er sich ändert
+    useEffect(() => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(stepsExpanded));
+      } catch (e) {
+        console.error("Error writing to localStorage:", e);
+      }
+    }, [stepsExpanded, storageKey]);
 
     const formatDate = (dateString: string) => {
       return format(new Date(dateString), "dd.MM.yyyy HH:mm", { locale: de });
@@ -62,6 +85,13 @@ export const AnalyticsResults = React.memo(
     };
 
     const getStatusProgress = (status: AnalysisStatus) => {
+      if (status === AnalysisStatus.PROCESSING && analytics.progress) {
+        // Wenn wir detaillierte Fortschrittsinformationen haben, berechnen wir den Fortschritt basierend darauf
+        const { currentStep, totalSteps } = analytics.progress;
+        return Math.round((currentStep / (totalSteps - 1)) * 100);
+      }
+      
+      // Fallback zu den festen Werten
       switch (status) {
         case AnalysisStatus.COMPLETED:
           return 100;
@@ -128,6 +158,32 @@ export const AnalyticsResults = React.memo(
           return <Sun className="h-4 w-4 mr-2 text-agrinode-brightness" />;
         default:
           return null;
+      }
+    };
+
+    const getStepStatusIcon = (step: ProgressStep) => {
+      switch (step.status) {
+        case 'completed':
+          return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+        case 'failed':
+          return <XCircle className="h-4 w-4 text-red-500" />;
+        case 'active':
+          return <LoaderCircle className="h-4 w-4 text-blue-500 animate-spin" />;
+        default:
+          return <div className="h-4 w-4 rounded-full border border-gray-300"></div>;
+      }
+    };
+    
+    const getStepStatusClass = (step: ProgressStep) => {
+      switch (step.status) {
+        case 'completed':
+          return "text-green-700 bg-green-50 border-green-200";
+        case 'failed':
+          return "text-red-700 bg-red-50 border-red-200";
+        case 'active':
+          return "text-blue-700 bg-blue-50 border-blue-200 font-medium";
+        default:
+          return "text-gray-500 bg-gray-50 border-gray-200";
       }
     };
 
@@ -204,6 +260,62 @@ export const AnalyticsResults = React.memo(
       );
     };
 
+    const renderProgressSteps = () => {
+      if (!analytics.progress || analytics.status !== AnalysisStatus.PROCESSING) {
+        return null;
+      }
+      
+      return (
+        <div className="mt-4">
+          <Collapsible
+            open={stepsExpanded}
+            onOpenChange={setStepsExpanded}
+            className="w-full"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="text-sm font-medium">Fortschritt</h5>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-0 h-7 w-7">
+                  {stepsExpanded ? 
+                    <ChevronUp className="h-4 w-4" /> : 
+                    <ChevronDown className="h-4 w-4" />
+                  }
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            
+            <CollapsibleContent className="space-y-2">
+              {analytics.progress.steps.map((step) => (
+                <div 
+                  key={step.index} 
+                  className={`flex items-center space-x-2 p-2 border rounded-md ${getStepStatusClass(step)}`}
+                >
+                  {getStepStatusIcon(step)}
+                  <span className="text-sm">{step.description}</span>
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+          
+          {/* Fortschrittsanzeige innerhalb der Fortschrittskarte */}
+          <div className="mt-2">
+            <Progress 
+              value={getStatusProgress(AnalysisStatus.PROCESSING)} 
+              className="h-2" 
+            />
+            <div className="flex justify-between mt-1">
+              <span className="text-xs text-muted-foreground">
+                Schritt {analytics.progress.currentStep + 1} von {analytics.progress.totalSteps}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {Math.round((analytics.progress.currentStep / (analytics.progress.totalSteps - 1)) * 100)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     const renderStatusIndicator = () => {
       return (
         <div className="flex flex-col gap-1.5">
@@ -220,13 +332,6 @@ export const AnalyticsResults = React.memo(
               </span>
             )}
           </div>
-          
-          {(analytics.status === AnalysisStatus.PROCESSING || analytics.status === AnalysisStatus.PENDING) && (
-            <Progress 
-              value={getStatusProgress(analytics.status)} 
-              className="h-1.5" 
-            />
-          )}
         </div>
       );
     };
@@ -258,13 +363,16 @@ export const AnalyticsResults = React.memo(
       
       if (analytics.status === AnalysisStatus.PROCESSING) {
         return (
-          <div className="flex items-center gap-3 text-muted-foreground mt-4 p-3 border border-blue-200 rounded-md bg-blue-50">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 flex-shrink-0"></div>
-            <div>
-              <p className="font-medium text-blue-700">Analyse wird durchgeführt</p>
-              <p className="text-sm">Die KI analysiert Ihre Daten. Dies kann je nach Datenmenge einige Minuten dauern.</p>
+          <>
+            <div className="flex items-center gap-3 text-muted-foreground mt-4 p-3 border border-blue-200 rounded-md bg-blue-50">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 flex-shrink-0"></div>
+              <div>
+                <p className="font-medium text-blue-700">Analyse wird durchgeführt</p>
+                <p className="text-sm">Die KI analysiert Ihre Daten. Dies kann je nach Datenmenge einige Minuten dauern.</p>
+              </div>
             </div>
-          </div>
+            {renderProgressSteps()}
+          </>
         );
       }
       
@@ -415,20 +523,6 @@ export const AnalyticsResults = React.memo(
                     </Badge>
                   </div>
                 </CollapsibleTrigger>
-                
-                {(analytics.status === AnalysisStatus.PROCESSING || analytics.status === AnalysisStatus.PENDING) && (
-                  <div className="w-full mt-1.5">
-                    <Progress 
-                      value={getStatusProgress(analytics.status)} 
-                      className="h-1.5" 
-                    />
-                    <div className="flex justify-end mt-1">
-                      <span className="text-xs text-muted-foreground">
-                        {analytics.status === AnalysisStatus.PROCESSING ? "Wird bearbeitet..." : "In Warteschlange"}
-                      </span>
-                    </div>
-                  </div>
-                )}
               </div>
               
               <CardDescription className="mt-1">
@@ -478,6 +572,8 @@ export const AnalyticsResults = React.memo(
       prevProps.analytics.status === nextProps.analytics.status &&
       prevProps.sensorName === nextProps.sensorName &&
       prevProps.isExpanded === nextProps.isExpanded &&
+      // Prüfe auf Änderungen im Fortschritt
+      JSON.stringify(prevProps.analytics.progress) === JSON.stringify(nextProps.analytics.progress) &&
       // Bei komplexen Objekten (result) nur relevant, wenn Status "completed" ist
       (prevProps.analytics.status !== AnalysisStatus.COMPLETED ||
         JSON.stringify(prevProps.analytics.result) === JSON.stringify(nextProps.analytics.result))

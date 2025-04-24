@@ -133,6 +133,18 @@ export enum AnalysisType {
   FORECAST = 'forecast'
 }
 
+export interface ProgressStep {
+  index: number;
+  description: string;
+  status: 'pending' | 'active' | 'completed' | 'failed';
+}
+
+export interface ProgressInfo {
+  totalSteps: number;
+  currentStep: number;
+  steps: ProgressStep[];
+}
+
 export interface TimeRange {
   start: string;
   end: string;
@@ -148,6 +160,7 @@ export interface SensorAnalytics {
     timeRange: TimeRange;
     [key: string]: any;
   };
+  progress?: ProgressInfo;
   result?: any;
   created_at: string;
   updated_at: string;

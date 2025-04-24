@@ -20,6 +20,8 @@ type SensorTypeInfoMap = {
     [K in SensorType]: SensorTypeInfo;
 };
 
+export type ProgressCallback = (phase: string, detail: string, progress: number) => Promise<void>;
+
 export class OllamaService {
     private ollama: typeof Ollama;
     private readonly DEFAULT_MODEL = 'deepseek-r1:8b';
@@ -93,18 +95,55 @@ export class OllamaService {
         }
     }
 
-    async analyzeSensorData(request: SensorDataAnalysisRequest): Promise<AnalysisResponse> {
+    async analyzeSensorData(
+        request: SensorDataAnalysisRequest, 
+        progressCallback?: ProgressCallback
+    ): Promise<AnalysisResponse> {
         try {
             const availableSensorTypes = this.getAvailableSensorTypes(request.sensorData);
             const model = request.model || this.DEFAULT_MODEL;
             
-            const sensorAnalyses = await Promise.all(
-                availableSensorTypes.map(sensorType => 
-                    this.analyzeSingleSensorType(request, sensorType as SensorType, model)
-                )
-            );
+            // Report data preparation phase
+            if (progressCallback) {
+                await progressCallback('data_preparation', 'Daten werden aufbereitet', 0.1);
+            }
+            
+            // Report sensor analysis start
+            if (progressCallback) {
+                await progressCallback('sensor_analysis_start', 'Analyse der Sensordaten beginnt', 0.2);
+            }
+            
+            // Process each sensor type with progress updates
+            let completedSensors = 0;
+            const sensorAnalysesPromises = availableSensorTypes.map(async (sensorType) => {
+                const result = await this.analyzeSingleSensorType(request, sensorType as SensorType, model);
+                
+                completedSensors++;
+                if (progressCallback) {
+                    const progress = 0.2 + (completedSensors / availableSensorTypes.length * 0.5);
+                    await progressCallback(
+                        'sensor_analysis_progress', 
+                        `Analyse von ${sensorType} abgeschlossen (${completedSensors}/${availableSensorTypes.length})`,
+                        progress
+                    );
+                }
+                
+                return result;
+            });
+            
+            const sensorAnalyses = await Promise.all(sensorAnalysesPromises);
 
+            // Correlation analysis phase
+            if (progressCallback) {
+                await progressCallback('correlation_analysis', 'Zusammenhangsanalyse läuft', 0.7);
+            }
+            
             const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes, model);
+
+            // Final summary phase
+            if (progressCallback) {
+                await progressCallback('summary_generation', 'Zusammenfassung wird erstellt', 0.9);
+            }
 
             const response = await this.ollama.generate({
                 model: model,
@@ -121,6 +160,11 @@ export class OllamaService {
                 },
                 system: 'You are an expert in analyzing agricultural sensor data. Create a comprehensive summary of the individual analyses and provide an overall assessment. Respond ONLY with a JSON object in German.'
             });
+            
+            // Analysis completion
+            if (progressCallback) {
+                await progressCallback('analysis_complete', 'Analyse abgeschlossen', 1.0);
+            }
 
             return {
                 overallSummary: JSON.parse(response.response).summary,

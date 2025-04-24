@@ -11,6 +11,18 @@ export enum AnalysisType {
   FORECAST = 'forecast'
 }
 
+export interface ProgressStep {
+  index: number;
+  description: string;
+  status: 'pending' | 'active' | 'completed' | 'failed';
+}
+
+export interface ProgressInfo {
+  totalSteps: number;
+  currentStep: number;
+  steps: ProgressStep[];
+}
+
 export interface SensorAnalytics {
   analytics_id: string;
   sensor_id: string;
@@ -24,6 +36,7 @@ export interface SensorAnalytics {
     };
     [key: string]: any;
   };
+  progress?: ProgressInfo;
   result?: any;
   created_at: Date;
   updated_at: Date;
