@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApiKeys } from '@/contexts/ApiKeysContext';
 import { useUsers } from '@/contexts/UsersContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOllama } from '@/contexts/OllamaContext';
 import authApi from '@/api/authApi';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ClipboardIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { AlertCircle, ClipboardIcon, EyeIcon, EyeOffIcon, RefreshCw, Loader } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 import { 
   Select, 
   SelectContent, 
@@ -19,6 +22,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const EXPIRATION_OPTIONS = [
   { label: 'Nie', value: '0' },
@@ -28,6 +32,23 @@ const EXPIRATION_OPTIONS = [
   { label: '90 Tage', value: '7776000' },
   { label: '1 Jahr', value: '31536000' },
 ];
+
+const POPULAR_MODELS = [
+  { name: 'deepseek-r1:8b', description: 'Kompaktes DeepSeek R1 8B Modell für generelle Aufgaben', size: '4 GB' },
+  { name: 'llama3:8b', description: 'Llama 3 8B Modell mit guter Balance aus Leistung und Effizienz', size: '4 GB' },
+  { name: 'llama3:70b', description: 'Llama 3 70B Vollversion für komplexe Aufgaben', size: '35 GB' },
+  { name: 'mistral:7b', description: 'Kleines Mistral 7B Modell für Effizienz', size: '3.5 GB' },
+  { name: 'dolphin-mistral:7b-v2.6', description: 'Optimiertes Mistral 7B für vielseitige Anfragen', size: '4 GB' },
+  { name: 'phi3:14b', description: 'Microsoft Phi-3 14B Modell', size: '7 GB' }
+];
+
+const formatModelSize = (bytes?: number): string => {
+  if (!bytes) return 'Unbekannt';
+  
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+};
 
 export const Settings: React.FC = () => {
   const { apiKeys, loading: apiKeysLoading, error: apiKeysError, fetchApiKeys, createApiKey, deleteApiKey } = useApiKeys();
@@ -41,6 +62,23 @@ export const Settings: React.FC = () => {
     deleteUser, 
     toggleRegistrationStatus 
   } = useUsers();
+
+  const { 
+    isConnected: ollamaConnected,
+    statusMessage: ollamaStatusMessage,
+    loading: ollamaLoading,
+    availableModels,
+    loadingModels,
+    modelDetails,
+    loadingModelDetails,
+    installProgress,
+    checkOllamaStatus,
+    fetchAvailableModels,
+    getModelDetails,
+    installModel,
+    deleteModel,
+    cancelModelInstallation
+  } = useOllama();
   
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -51,7 +89,6 @@ export const Settings: React.FC = () => {
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
   
-  // State for user dialog
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<{
@@ -62,7 +99,6 @@ export const Settings: React.FC = () => {
     active: boolean;
   } | null>(null);
 
-  // State for new user dialog
   const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     username: '',
@@ -72,6 +108,17 @@ export const Settings: React.FC = () => {
   });
   const [creatingUser, setCreatingUser] = useState(false);
 
+  const [installModelDialogOpen, setInstallModelDialogOpen] = useState(false);
+  const [modelToInstall, setModelToInstall] = useState('');
+  const [customModel, setCustomModel] = useState('');
+  const [insecureInstall, setInsecureInstall] = useState(false);
+  const [installingModel, setInstallingModel] = useState(false);
+  
+  const [modelDetailsDialogOpen, setModelDetailsDialogOpen] = useState(false);
+  const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
+  const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false);
+  const [modelToDelete, setModelToDelete] = useState<string | null>(null);
+
   useEffect(() => {
     fetchApiKeys();
     if (isAdmin) {
@@ -79,7 +126,6 @@ export const Settings: React.FC = () => {
     }
   }, [isAdmin]);
 
-  // API Key functions
   const handleToggleVisibility = (id: string, key: string) => {
     if (visibleKeys[id]) {
       setVisibleKeys(prev => ({ ...prev, [id]: false }));
@@ -119,7 +165,6 @@ export const Settings: React.FC = () => {
       setName('');
       setExpiration('0');
     } catch {
-      // Error is already handled in context
     } finally {
       setSubmitting(false);
     }
@@ -130,17 +175,14 @@ export const Settings: React.FC = () => {
     try {
       await deleteApiKey(id);
     } catch {
-      // Error is already displayed
     }
   };
   
-  // User functions
   const handleToggleRegistration = async (enabled: boolean) => {
     if (!isAdmin) return;
     try {
       await toggleRegistrationStatus(enabled);
     } catch {
-      // Error is already handled in context
     }
   };
   
@@ -153,7 +195,7 @@ export const Settings: React.FC = () => {
       username: userToEdit.username,
       email: userToEdit.email,
       role: userToEdit.role,
-      active: true // Assumption: We set all users as active since we don't have a status
+      active: true
     });
     
     setUserDialogOpen(true);
@@ -185,7 +227,6 @@ export const Settings: React.FC = () => {
       
       toast.success('User created successfully');
       setNewUserDialogOpen(false);
-      // Refresh user list
       fetchUsers();
     } catch (error: any) {
       toast.error(error.message || 'Failed to create user');
@@ -207,7 +248,6 @@ export const Settings: React.FC = () => {
       setUserDialogOpen(false);
       setEditingUser(null);
     } catch {
-      // Error is already handled in context
     }
   };
   
@@ -217,7 +257,90 @@ export const Settings: React.FC = () => {
     try {
       await deleteUser(userId);
     } catch {
-      // Error is already handled in context
+    }
+  };
+
+  const handleRefreshModels = async () => {
+    await fetchAvailableModels();
+  };
+
+  const handleOpenInstallDialog = () => {
+    setModelToInstall('');
+    setCustomModel('');
+    setInsecureInstall(false);
+    setInstallModelDialogOpen(true);
+  };
+
+  const handleModelInstall = async () => {
+    const modelName = modelToInstall === 'custom' ? customModel.trim() : modelToInstall;
+    
+    if (!modelName) {
+      toast.error('Bitte wähle ein Modell aus oder gib einen Namen ein');
+      return;
+    }
+    
+    try {
+      setInstallingModel(true);
+      
+      const success = await installModel({
+        name: modelName,
+        insecure: insecureInstall
+      });
+      
+      if (success) {
+        toast.success(`Installation von ${modelName} gestartet`);
+        setInstallModelDialogOpen(false);
+      } else {
+        toast.error('Fehler beim Starten der Installation');
+      }
+    } catch (error) {
+      console.error('Installation error:', error);
+      toast.error('Fehler bei der Installation des Modells');
+    } finally {
+      setInstallingModel(false);
+    }
+  };
+
+  const handleOpenModelDetails = async (modelName: string) => {
+    setSelectedModelName(modelName);
+    setModelDetailsDialogOpen(true);
+    await getModelDetails(modelName);
+  };
+
+  const handleConfirmDeleteModel = (modelName: string) => {
+    setModelToDelete(modelName);
+    setConfirmDeleteDialogOpen(true);
+  };
+
+  const handleDeleteModel = async () => {
+    if (!modelToDelete) return;
+    
+    try {
+      const success = await deleteModel(modelToDelete);
+      
+      if (success) {
+        if (modelDetailsDialogOpen) {
+          setModelDetailsDialogOpen(false);
+        }
+        setConfirmDeleteDialogOpen(false);
+        setModelToDelete(null);
+      }
+    } catch (error) {
+      console.error('Error deleting model:', error);
+      toast.error(`Fehler beim Löschen des Modells ${modelToDelete}`);
+    }
+  };
+
+  const handleCancelDownload = async (modelName: string) => {
+    try {
+      const success = await cancelModelInstallation(modelName);
+      
+      if (success) {
+        toast.success(`Download von ${modelName} wurde abgebrochen`);
+      }
+    } catch (error) {
+      console.error(`Error cancelling download for ${modelName}:`, error);
+      toast.error(`Fehler beim Abbrechen des Downloads für ${modelName}`);
     }
   };
 
@@ -315,7 +438,192 @@ export const Settings: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Only visible for admins */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <h2 className="text-xl font-semibold">Modell Management</h2>
+          <div className="flex space-x-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={checkOllamaStatus} 
+              disabled={ollamaLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${ollamaLoading ? 'animate-spin' : ''}`} />
+              Status prüfen
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!ollamaConnected && !ollamaLoading ? (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {ollamaStatusMessage || "Keine Verbindung zum Ollama-Dienst möglich. KI-Modelle können nicht verwaltet werden."}
+              </AlertDescription>
+            </Alert>
+          ) : ollamaLoading ? (
+            <div className="flex justify-center items-center h-20">
+              <Loader className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Prüfe Ollama-Verbindung...</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-sm text-muted-foreground">
+                  <span className="inline-flex items-center">
+                    <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                    Verbunden mit Ollama
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    size="sm"
+                    onClick={handleRefreshModels}
+                    disabled={loadingModels}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${loadingModels ? 'animate-spin' : ''}`} />
+                    Modelle aktualisieren
+                  </Button>
+                  <Button 
+                    size="sm"
+                    onClick={handleOpenInstallDialog}
+                  >
+                    Modell installieren
+                  </Button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto mb-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Beschreibung</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Aktionen</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {availableModels.length === 0 && loadingModels && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-6">
+                          <Loader className="h-5 w-5 animate-spin mx-auto" />
+                          <span className="text-sm text-muted-foreground mt-2 block">Lade Modelle...</span>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {availableModels.length === 0 && !loadingModels && Object.keys(installProgress).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-6">
+                          <span className="text-muted-foreground">Keine Modelle installiert</span>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {/* Zeige die installierten Modelle */}
+                    {availableModels.map(model => {
+                      const progress = installProgress[model.name];
+                      const isInstalling = progress && !progress.completed;
+                      
+                      return (
+                        <TableRow key={model.name}>
+                          <TableCell className="font-semibold">{model.name}</TableCell>
+                          <TableCell>{model.description}</TableCell>
+                          <TableCell>
+                            {isInstalling ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs">{progress.status}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {Math.round(progress.progress * 100)}%
+                                  </span>
+                                </div>
+                                <Progress value={progress.progress * 100} className="h-1" />
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center text-xs">
+                                <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></span>
+                                Bereit
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end space-x-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleOpenModelDetails(model.name)}
+                                disabled={isInstalling}
+                              >
+                                Details
+                              </Button>
+                              <Button 
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleConfirmDeleteModel(model.name)}
+                                disabled={isInstalling}
+                              >
+                                Löschen
+                              </Button>
+                              {isInstalling && (
+                                <Button 
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleCancelDownload(model.name)}
+                                >
+                                  Abbrechen
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    
+                    {/* Zeige Modelle, die installiert werden, aber noch nicht in der Liste sind */}
+                    {Object.entries(installProgress)
+                      .filter(([modelName, progress]) => !progress.completed && !availableModels.some(m => m.name === modelName))
+                      .map(([modelName, progress]) => {
+                        const progressPercent = Math.round(progress.progress * 100);
+                        const description = POPULAR_MODELS.find(m => m.name === modelName)?.description || 'Installation läuft...';
+                        
+                        return (
+                          <TableRow key={modelName}>
+                            <TableCell className="font-semibold">{modelName}</TableCell>
+                            <TableCell>{description}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs">{progress.status}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {progressPercent}%
+                                  </span>
+                                </div>
+                                <Progress value={progressPercent} className="h-1" />
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end space-x-2">
+                                <Button 
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleCancelDownload(modelName)}
+                                >
+                                  Abbrechen
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    }
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {isAdmin && (
         <Card>
           <CardHeader>
@@ -349,7 +657,6 @@ export const Settings: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {users.map(listUser => {
-                    // Check if this is the current logged-in user
                     const isCurrentUser = user && listUser.user_id === user.user_id;
                     
                     return (
@@ -396,7 +703,6 @@ export const Settings: React.FC = () => {
         </Card>
       )}
 
-      {/* API Key Dialog */}
       {dialogKey && (
         <Dialog open={!!dialogKey} onOpenChange={() => setDialogKey(null)}>
           <DialogContent>
@@ -414,7 +720,6 @@ export const Settings: React.FC = () => {
         </Dialog>
       )}
       
-      {/* Edit User Dialog */}
       {editingUser && (
         <Dialog open={userDialogOpen} onOpenChange={open => {
           setUserDialogOpen(open);
@@ -482,7 +787,6 @@ export const Settings: React.FC = () => {
         </Dialog>
       )}
 
-      {/* New User Dialog */}
       <Dialog open={newUserDialogOpen} onOpenChange={open => {
         setNewUserDialogOpen(open);
       }}>
@@ -544,6 +848,189 @@ export const Settings: React.FC = () => {
             </Button>
             <Button onClick={handleCreateUser} disabled={creatingUser}>
               {creatingUser ? 'Creating...' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={installModelDialogOpen} onOpenChange={setInstallModelDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Modell installieren</DialogTitle>
+            <DialogDescription>
+              Wähle ein voreingestelltes Modell oder gib einen benutzerdefinierten Namen ein.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="model">Modell</Label>
+              <Select
+                value={modelToInstall}
+                onValueChange={setModelToInstall}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Modell auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {POPULAR_MODELS.map(model => (
+                    <SelectItem key={model.name} value={model.name}>
+                      <div className="flex flex-col">
+                        <span>{model.name}</span>
+                        <span className="text-xs text-muted-foreground">{model.description} ({model.size})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Benutzerdefiniertes Modell...</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {modelToInstall === 'custom' && (
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="custom-model">Modellname</Label>
+                  <Input
+                    id="custom-model"
+                    placeholder="z.B. llama2:7b-chat-q4_K_M"
+                    value={customModel}
+                    onChange={(e) => setCustomModel(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gib den vollständigen Namen des Modells ein, wie er in Ollama verwendet wird.
+                    Beispiele: llama2:7b oder mixtral:8x7b-instruct-v0.1-q5_K_M
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="insecure" 
+                checked={insecureInstall}
+                onCheckedChange={(checked) => setInsecureInstall(!!checked)}
+              />
+              <Label htmlFor="insecure" className="text-sm">
+                SSL-Zertifikatsüberprüfung deaktivieren (unsicher)
+              </Label>
+            </div>
+            
+            <Alert>
+              <AlertDescription className="text-sm">
+                Die Installation großer Modelle kann je nach Modellgröße und Internetgeschwindigkeit einige Zeit dauern.
+                Der Download läuft im Hintergrund und der Fortschritt wird angezeigt.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInstallModelDialogOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={handleModelInstall}
+              disabled={installingModel || (!modelToInstall || (modelToInstall === 'custom' && !customModel))}
+            >
+              {installingModel ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  Installation läuft...
+                </>
+              ) : 'Installieren'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={modelDetailsDialogOpen} onOpenChange={setModelDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[1000px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modelldetails</DialogTitle>
+          </DialogHeader>
+          {loadingModelDetails ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader className="h-8 w-8 animate-spin" />
+              <span className="ml-3">Lade Modelldetails...</span>
+            </div>
+          ) : !modelDetails ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Keine Details verfügbar für dieses Modell
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm text-muted-foreground">Name</h3>
+                  <p>{modelDetails.name}</p>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm text-muted-foreground">Größe</h3>
+                  <p>{formatModelSize(modelDetails.size)}</p>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm text-muted-foreground">Parameter</h3>
+                  <p>{modelDetails.parameter_size || 'Unbekannt'}</p>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm text-muted-foreground">Quantisierung</h3>
+                  <p>{modelDetails.quantization || 'Keine'}</p>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm text-muted-foreground">Format</h3>
+                  <p>{modelDetails.format || 'Unbekannt'}</p>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm text-muted-foreground">Modellfamilie</h3>
+                  <p>{modelDetails.families?.join(', ') || 'Unbekannt'}</p>
+                </div>
+              </div>
+              
+              {modelDetails.modelfile && (
+                <div className="space-y-2">
+                  <h3 className="font-medium">Modelfile</h3>
+                  
+                  <pre className="bg-secondary text-secondary-foreground p-4 rounded-md text-xs overflow-x-auto">
+                    {modelDetails.modelfile}
+                  </pre>
+                </div>
+              )}
+              
+              <DialogFooter className="flex justify-between sm:justify-between">
+                <Button 
+                  variant="destructive"
+                  onClick={() => handleConfirmDeleteModel(modelDetails.name)}
+                >
+                  Löschen
+                </Button>
+                <Button variant="outline" onClick={() => setModelDetailsDialogOpen(false)}>
+                  Schließen
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDeleteDialogOpen} onOpenChange={setConfirmDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modell löschen</DialogTitle>
+            <DialogDescription>
+              Möchtest du das Modell "{modelToDelete}" wirklich löschen? 
+              Dieser Vorgang kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setConfirmDeleteDialogOpen(false);
+                setModelToDelete(null);
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteModel}
+            >
+              Löschen
             </Button>
           </DialogFooter>
         </DialogContent>

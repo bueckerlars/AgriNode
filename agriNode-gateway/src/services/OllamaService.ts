@@ -16,6 +16,54 @@ interface SensorTypeInfo {
     description: string;
 }
 
+interface ModelDetails {
+    name: string;
+    modelfile?: string;
+    parameters?: string; // Geändert zu string, da die API strings zurückgibt
+    quantization?: string;
+    size?: number;
+    format?: string;
+    families?: string[];
+    parameter_size?: string;
+}
+
+interface OllamaModelDetails {
+    details?: {
+        format?: string;
+        family?: string;
+        families?: string[];
+        parameter_size?: string;
+        quantization?: string;
+    };
+    license?: string;
+    modelfile?: string;
+    parameters?: string;
+    template?: string;
+    system?: string;
+    size?: number;
+}
+
+interface ModelInstallParams {
+    name: string;
+    modelfile?: string;
+    insecure?: boolean;
+}
+
+interface ModelInstallProgress {
+    status: string;
+    completed?: boolean;
+    digest?: string;
+    total?: number;
+    completed_size?: number;
+    progress?: number;     // Fortschrittswert von 0 bis 1 für das Frontend
+    // Kumulierte Daten über alle Dateien hinweg
+    total_downloaded?: number;    // Gesamtgröße aller bisher heruntergeladenen Bytes
+    estimated_total_size?: number; // Geschätzte Gesamtgröße (kann sich im Laufe der Zeit ändern)
+    file_count?: number;          // Anzahl der bisher heruntergeladenen Dateien
+    current_file?: string;        // Digest der aktuellen Datei
+    file_progress?: Record<string, { total: number, completed: number }>; // Tracking für einzelne Dateien
+}
+
 type SensorTypeInfoMap = {
     [K in SensorType]: SensorTypeInfo;
 };
@@ -26,6 +74,9 @@ export class OllamaService {
     private ollama: Ollama;
     private readonly DEFAULT_MODEL = 'deepseek-r1:8b';
     private readonly SENSOR_TYPES: SensorType[] = ['temperature', 'humidity', 'brightness', 'soilMoisture'];
+    private modelInstallProgress: Map<string, ModelInstallProgress> = new Map();
+    private activeDownloads: Set<string> = new Set();
+    private downloadCancellationFlags: Map<string, boolean> = new Map();
 
     private readonly sensorTypeInfo: SensorTypeInfoMap = {
         temperature: {
@@ -97,6 +148,273 @@ export class OllamaService {
         }
     }
 
+    async getModelDetails(modelName: string): Promise<ModelDetails | null> {
+        try {
+            const modelInfo = await this.ollama.show({ model: modelName }) as OllamaModelDetails;
+            
+            if (!modelInfo) {
+                return null;
+            }
+            
+            return {
+                name: modelName,
+                modelfile: modelInfo.modelfile,
+                parameters: modelInfo.parameters,
+                quantization: modelInfo.details?.quantization,
+                format: modelInfo.details?.format,
+                families: modelInfo.details?.families,
+                parameter_size: modelInfo.details?.parameter_size,
+                size: modelInfo.size
+            };
+        } catch (error) {
+            console.error(`Error getting model details for ${modelName}:`, error);
+            return null;
+        }
+    }
+
+    async installModel(params: ModelInstallParams): Promise<boolean> {
+        try {
+            // Status im Fortschritts-Map initialisieren
+            this.modelInstallProgress.set(params.name, {
+                status: 'downloading',
+                completed: false,
+                total_downloaded: 0,
+                estimated_total_size: 0,
+                file_count: 0,
+                file_progress: {}
+            });
+
+            // Markiere den Download als aktiv
+            this.activeDownloads.add(params.name);
+            this.downloadCancellationFlags.set(params.name, false);
+
+            try {
+                // Starten des Pull-Vorgangs mit korrekten Parametern
+                const pullStream = await this.ollama.pull({
+                    model: params.name,
+                    insecure: params.insecure,
+                    stream: true
+                });
+                
+                // Wichtig: Den Stream-Verarbeitungsprozess als separaten Promise starten
+                this.processPullStream(params.name, pullStream);
+                
+                return true;
+            } catch (error) {
+                // Prüfe, ob der Fehler durch das Abbrechen des Requests verursacht wurde
+                if (this.downloadCancellationFlags.get(params.name)) {
+                    console.log(`Pull for model ${params.name} was cancelled`);
+                    this.modelInstallProgress.set(params.name, {
+                        status: 'cancelled',
+                        completed: true
+                    });
+                    return false;
+                }
+
+                console.error(`Failed to start pull for model ${params.name}:`, error);
+                // Bei einem Fehler den Status aktualisieren
+                this.modelInstallProgress.set(params.name, {
+                    status: 'error',
+                    completed: true
+                });
+                return false;
+            } finally {
+                // Aufräumen wenn der Request abgeschlossen ist (erfolgreich, abgebrochen oder fehlerhaft)
+                setTimeout(() => {
+                    // Entferne den Download nach einer Verzögerung
+                    this.activeDownloads.delete(params.name);
+                    this.downloadCancellationFlags.delete(params.name);
+                }, 5000);
+            }
+        } catch (error) {
+            console.error(`Error installing model ${params.name}:`, error);
+            this.modelInstallProgress.delete(params.name);
+            this.activeDownloads.delete(params.name);
+            this.downloadCancellationFlags.delete(params.name);
+            return false;
+        }
+    }
+
+    private async processPullStream(modelName: string, pullStream: AsyncIterable<any>): Promise<void> {
+        try {
+            for await (const chunk of pullStream) {
+                // Prüfe, ob der Download abgebrochen wurde
+                if (this.downloadCancellationFlags.get(modelName)) {
+                    console.log(`Download for model ${modelName} was cancelled during processing`);
+                    this.modelInstallProgress.set(modelName, {
+                        status: 'cancelled',
+                        completed: true
+                    });
+                    break;
+                }
+
+                // Debug-Ausgabe hinzufügen
+                console.log(`Pull stream chunk for ${modelName}:`, JSON.stringify(chunk));
+                
+                // Ein Download gilt nur als abgeschlossen wenn:
+                // 1. completed != null ist
+                // 2. status === 'success' ist
+                const isReallyCompleted = chunk.completed !== null && 
+                                          chunk.completed !== undefined && 
+                                          chunk.status === 'success';
+
+                // Hole den aktuellen Fortschritt
+                const currentProgress = this.modelInstallProgress.get(modelName) || {
+                    status: 'downloading',
+                    completed: false,
+                    total_downloaded: 0,
+                    estimated_total_size: 0,
+                    file_count: 0,
+                    file_progress: {}
+                };
+                
+                // Falls ein Digest vorhanden ist, verfolge den Fortschritt dieser Datei
+                if (chunk.digest) {
+                    // Initialisiere die Datei-Verfolgung, falls nicht vorhanden
+                    if (!currentProgress.file_progress) {
+                        currentProgress.file_progress = {};
+                    }
+
+                    // Setze den aktuellen Datei-Digest
+                    currentProgress.current_file = chunk.digest;
+
+                    // Initialisiere oder aktualisiere den Datei-Fortschritt
+                    if (!currentProgress.file_progress[chunk.digest]) {
+                        currentProgress.file_progress[chunk.digest] = {
+                            total: chunk.total || 0,
+                            completed: chunk.completed_size || 0
+                        };
+
+                        // Erhöhe die Anzahl der Dateien, wenn diese neu ist
+                        currentProgress.file_count = (currentProgress.file_count || 0) + 1;
+                    } else {
+                        // Aktualisiere den Fortschritt für eine bereits bekannte Datei
+                        if (chunk.total) {
+                            currentProgress.file_progress[chunk.digest].total = chunk.total;
+                        }
+                        if (chunk.completed_size !== undefined) {
+                            // Berechne den Unterschied zwischen neuem und altem Wert
+                            const oldCompleted = currentProgress.file_progress[chunk.digest].completed;
+                            const newCompleted = chunk.completed_size;
+                            const downloadedDiff = newCompleted - oldCompleted;
+                            
+                            // Aktualisiere die heruntergeladenen Bytes für diese Datei
+                            currentProgress.file_progress[chunk.digest].completed = newCompleted;
+                            
+                            // Füge die neu heruntergeladenen Bytes zum Gesamt-Download hinzu
+                            if (downloadedDiff > 0) {
+                                currentProgress.total_downloaded = (currentProgress.total_downloaded || 0) + downloadedDiff;
+                            }
+                        }
+                    }
+
+                    // Aktualisiere die geschätzte Gesamtgröße
+                    let estimatedTotal = 0;
+                    Object.values(currentProgress.file_progress).forEach(file => {
+                        estimatedTotal += file.total;
+                    });
+                    currentProgress.estimated_total_size = estimatedTotal;
+
+                    // Berechne den Gesamtfortschritt
+                    const totalDownloaded = currentProgress.total_downloaded || 0;
+                    const estimatedSize = currentProgress.estimated_total_size || 1; // Verhindere Division durch 0
+                    
+                    // Hier aktualisieren wir completed_size und total für die Kompatibilität mit dem Frontend
+                    currentProgress.completed_size = totalDownloaded;
+                    currentProgress.total = estimatedSize;
+                }
+                
+                // Aktualisiere den Status basierend auf dem Chunk
+                currentProgress.status = chunk.status || 'downloading';
+                currentProgress.completed = isReallyCompleted;
+                
+                // Speichere den aktualisierten Fortschritt zurück in die Map
+                this.modelInstallProgress.set(modelName, currentProgress);
+
+                // Nur ausbrechen wenn wirklich abgeschlossen
+                if (isReallyCompleted) {
+                    console.log(`Model ${modelName} installation fully completed: status=${chunk.status}, completed=${chunk.completed}`);
+                    // Setze den finalen Status
+                    this.modelInstallProgress.set(modelName, {
+                        ...currentProgress,
+                        status: 'success',
+                        completed: true,
+                        progress: 1.0
+                    });
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error(`Error during model installation stream processing for ${modelName}:`, error);
+            // Status auf Fehler setzen
+            this.modelInstallProgress.set(modelName, {
+                status: 'error',
+                completed: true
+            });
+        }
+    }
+
+    async deleteModel(modelName: string): Promise<boolean> {
+        try {
+            await this.ollama.delete({
+                model: modelName
+            });
+            return true;
+        } catch (error) {
+            console.error(`Error deleting model ${modelName}:`, error);
+            return false;
+        }
+    }
+
+    async getModelInstallProgress(modelName: string): Promise<ModelInstallProgress | null> {
+        const progress = this.modelInstallProgress.get(modelName);
+        
+        if (!progress) {
+            return null;
+        }
+        
+        if (progress.completed) {
+            setTimeout(() => {
+                this.modelInstallProgress.delete(modelName);
+            }, 5 * 60 * 1000);
+        }
+        
+        return progress;
+    }
+
+    async cancelModelInstallation(modelName: string): Promise<boolean> {
+        try {
+            // Check if installation is in progress
+            const progress = this.modelInstallProgress.get(modelName);
+            
+            if (!progress || progress.completed) {
+                return false; // Nothing to cancel
+            }
+            
+            // Markiere den Download als abgebrochen
+            console.log(`Cancelling download for model ${modelName}...`);
+            this.downloadCancellationFlags.set(modelName, true);
+            
+            // Warte kurz und überprüfe, ob der Download wirklich abgebrochen wurde
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Mark the installation as cancelled
+            this.modelInstallProgress.set(modelName, {
+                status: 'cancelled',
+                completed: true
+            });
+            
+            // Clean up active download
+            this.activeDownloads.delete(modelName);
+            this.downloadCancellationFlags.delete(modelName);
+            
+            return true;
+        } catch (error) {
+            console.error(`Error cancelling installation of model ${modelName}:`, error);
+            return false;
+        }
+    }
+
     async analyzeSensorData(
         request: SensorDataAnalysisRequest, 
         progressCallback?: ProgressCallback
@@ -105,17 +423,14 @@ export class OllamaService {
             const availableSensorTypes = this.getAvailableSensorTypes(request.sensorData);
             const model = request.model || this.DEFAULT_MODEL;
             
-            // Report data preparation phase
             if (progressCallback) {
                 await progressCallback('data_preparation', 'Daten werden aufbereitet', 0.1);
             }
             
-            // Report sensor analysis start
             if (progressCallback) {
                 await progressCallback('sensor_analysis_start', 'Analyse der Sensordaten beginnt', 0.2);
             }
             
-            // Process each sensor type with progress updates
             let completedSensors = 0;
             const sensorAnalysesPromises = availableSensorTypes.map(async (sensorType) => {
                 const result = await this.analyzeSingleSensorType(request, sensorType as SensorType, model);
@@ -135,14 +450,12 @@ export class OllamaService {
             
             const sensorAnalyses = await Promise.all(sensorAnalysesPromises);
 
-            // Correlation analysis phase
             if (progressCallback) {
                 await progressCallback('correlation_analysis', 'Zusammenhangsanalyse läuft', 0.7);
             }
             
             const correlations = await this.analyzeCorrelations(request.sensorData, availableSensorTypes, model);
 
-            // Final summary phase
             if (progressCallback) {
                 await progressCallback('summary_generation', 'Zusammenfassung wird erstellt', 0.9);
             }
@@ -163,7 +476,6 @@ export class OllamaService {
                 system: 'You are an expert in analyzing agricultural sensor data. Create a comprehensive summary of the individual analyses and provide an overall assessment. Respond ONLY with a JSON object in German.'
             });
             
-            // Analysis completion
             if (progressCallback) {
                 await progressCallback('analysis_complete', 'Analyse abgeschlossen', 1.0);
             }
