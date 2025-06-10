@@ -1,0 +1,3 @@
+[submodule "agriNode-homeassistant"]
+    path = agriNode-homeassistant
+    url = https://github.com/bueckerlars/AgriNode-Homeassistant-Integration.git
