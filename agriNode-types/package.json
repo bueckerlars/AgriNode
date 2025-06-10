@@ -1,0 +1,19 @@
+{
+  "name": "@agrinode/types",
+  "version": "1.0.0",
+  "description": "Common type definitions for AgriNode projects",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "keywords": ["agrinode", "types"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  }
+}
